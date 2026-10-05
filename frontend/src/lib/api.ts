@@ -9,7 +9,7 @@
 
 import type { DiaryEntry, MealType, Product } from './types'
 
-const API_BASE = 'http://localhost:5022/api'
+const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostname}:5022/api` : 'http://localhost:5022/api'
 
 // ---------------------------------------------------------------------------
 // Typy odpowiedzi z backendu
