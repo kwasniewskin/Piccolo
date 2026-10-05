@@ -1,0 +1,23 @@
+{
+  "name": "Piccolo – Calorie & Macro Diary",
+  "short_name": "Piccolo",
+  "description": "A simple, intuitive calorie and macro tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0D12",
+  "theme_color": "#1d2028",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
