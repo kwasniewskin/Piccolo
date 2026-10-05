@@ -1,0 +1,14 @@
+# Zależności
+node_modules
+
+# Build Next.js
+.next/
+out/
+*.tsbuildinfo
+
+# Zmienne środowiskowe
+.env*.local
+
+# System
+.DS_Store
+Thumbs.db
