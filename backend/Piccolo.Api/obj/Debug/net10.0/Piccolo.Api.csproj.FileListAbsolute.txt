@@ -153,3 +153,12 @@ C:\Users\nikod\AppData\Local\Temp\piccolo-verify\Piccolo.Api.deps.json
 C:\Users\nikod\AppData\Local\Temp\piccolo-verify\Piccolo.Api.runtimeconfig.json
 C:\Users\nikod\AppData\Local\Temp\piccolo-verify\Piccolo.Api.dll
 C:\Users\nikod\AppData\Local\Temp\piccolo-verify\Piccolo.Api.pdb
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.Bcl.Cryptography.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll

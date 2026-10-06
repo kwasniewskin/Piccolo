@@ -1,3 +1,4 @@
+import { ClerkProvider } from '@clerk/nextjs';
 import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, Manrope } from 'next/font/google'
 import './globals.css'
@@ -43,7 +44,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${manrope.variable} ${bricolage.variable} bg-background`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <ClerkProvider>
+          {children}
+        </ClerkProvider>
+      </body>
     </html>
   )
 }

@@ -8,6 +8,7 @@
  */
 
 import type { DiaryEntry, MealType, Product } from './types'
+import { auth } from '@clerk/nextjs/server'
 
 const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostname}:5022/api` : 'http://localhost:5022/api'
 
@@ -54,6 +55,37 @@ type CreateDiaryEntryDto = {
 // ---------------------------------------------------------------------------
 // Funkcje pomocnicze
 // ---------------------------------------------------------------------------
+
+/**
+ * Pobiera token JWT z Clerk dla requestów server-side.
+ */
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window !== 'undefined') {
+    // Client-side: pobierz token z Clerk
+    const { getToken } = await import('@clerk/nextjs')
+    return await getToken({ template: 'jwp-email-template' })
+  } else {
+    // Server-side: użyj auth() z @clerk/nextjs/server
+    const { getToken } = await auth()
+    return await getToken({ template: 'jwp-email-template' })
+  }
+}
+
+/**
+ * Tworzy headery z tokenem autentykacji.
+ */
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getAuthToken()
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  return headers
+}
 
 /**
  * Mapuje produkt z API na format frontendowy z domyślnymi wartościami.
@@ -105,7 +137,9 @@ export async function searchProducts(query: string): Promise<Product[]> {
     const url = trimmed
       ? `${API_BASE}/products/search?query=${encodeURIComponent(trimmed)}`
       : `${API_BASE}/products/search`
-    const response = await fetch(url)
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
       console.error(`[API] Product search failed: ${response.status} ${response.statusText}`)
@@ -134,7 +168,8 @@ export async function searchProducts(query: string): Promise<Product[]> {
 export async function getDiaryEntries(date: string): Promise<DiaryEntry[]> {
   try {
     const url = `${API_BASE}/diary?date=${encodeURIComponent(date)}`
-    const response = await fetch(url)
+    const headers = await getAuthHeaders()
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
       console.error(`[API] Diary fetch failed: ${response.status} ${response.statusText}`)
@@ -168,14 +203,21 @@ export async function createDiaryEntry(
       amountInGrams,
     }
 
+    console.log('[API] Creating diary entry:', dto)
+
     const response = await fetch(`${API_BASE}/diary`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(dto),
     })
 
+    console.log('[API] Response status:', response.status)
+
     if (!response.ok) {
+      const errorText = await response.text()
       console.error(`[API] Diary create failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      console.error(`[API] Request body:`, JSON.stringify(dto, null, 2))
       return null
     }
 
@@ -196,6 +238,7 @@ export async function deleteDiaryEntry(id: number): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE}/diary/${id}`, {
       method: 'DELETE',
+      headers: await getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -231,7 +274,8 @@ export async function getProductById(id: number): Promise<Product | null> {
 
   // Pobierz z API
   try {
-    const response = await fetch(`${API_BASE}/products/${id}`)
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE}/products/${id}`, { headers })
     
     if (!response.ok) {
       console.error(`[API] Product fetch failed: ${response.status} ${response.statusText}`)

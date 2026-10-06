@@ -35,11 +35,18 @@ namespace Piccolo.Api.Migrations
                     b.Property<int>("ProductId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Date");
 
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "Date");
 
                     b.ToTable("DiaryEntries");
                 });
@@ -74,6 +81,36 @@ namespace Piccolo.Api.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Piccolo.Api.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ClerkUserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClerkUserId")
+                        .IsUnique();
+
+                    b.HasIndex("Email");
+
+                    b.ToTable("Users");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>
                 {
                     b.HasOne("Piccolo.Api.Models.Product", "Product")
@@ -82,10 +119,23 @@ namespace Piccolo.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Piccolo.Api.Models.User", "User")
+                        .WithMany("DiaryEntries")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Product");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
+                {
+                    b.Navigation("DiaryEntries");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.User", b =>
                 {
                     b.Navigation("DiaryEntries");
                 });
