@@ -18,6 +18,12 @@ public class DiaryEntry
     
     public double AmountInGrams { get; set; }
     
-    // Navigation property - relacja N:1 do Product
+    /// <summary>
+    /// ID użytkownika, którego dotyczy wpis.
+    /// </summary>
+    public int UserId { get; set; }
+    
+    // Navigation properties
     public Product Product { get; set; } = null!;
+    public User User { get; set; } = null!;
 }

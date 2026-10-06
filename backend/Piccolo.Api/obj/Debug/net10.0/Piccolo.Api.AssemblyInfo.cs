@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Piccolo.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+624acdcbed0eea45f09fd9928d698ef9c7929131")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e1f2303bbeb8a8808ad437494526ff444b9414e0")]
 [assembly: System.Reflection.AssemblyProductAttribute("Piccolo.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Piccolo.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

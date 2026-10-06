@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Piccolo.Api.Data;
@@ -7,6 +8,7 @@ namespace Piccolo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -43,6 +45,7 @@ public class ProductsController : ControllerBase
     /// POST /api/products
     /// </summary>
     [HttpPost]
+    [AllowAnonymous] // Produkty są globalne - seedowanie musi działać bez autoryzacji
     public async Task<ActionResult<Product>> Create([FromBody] Product product)
     {
         _context.Products.Add(product);

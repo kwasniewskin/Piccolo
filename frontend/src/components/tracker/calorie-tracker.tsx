@@ -158,11 +158,13 @@ export function CalorieTracker() {
     // Wyślij do API
     const entry = await api.createDiaryEntry(activeDate, meal, product.id, amountInGrams)
     
+    // Zawsze zamknij modal, niezależnie od wyniku
+    setOpenMeal(null)
+    
     if (entry) {
       // Zsynchronizuj produkty w stanie z cache – bez tego toEntryView nie znajdzie
       // nowego produktu i wpis nie zostałby wyrenderowany.
       dispatch({ type: 'set-products', products: api.getCachedProducts() })
-      setOpenMeal(null)
 
       // Odśwież listę wpisów dla dnia z serwera (źródło prawdy).
       const fresh = await api.getDiaryEntries(activeDate)

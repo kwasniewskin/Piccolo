@@ -1,0 +1,52 @@
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env
+frontend/.env.local
+frontend/.env.production.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.vercel
+frontend/.turbo
+
+# Backend (.NET)
+backend/Piccolo.Api/bin/
+backend/Piccolo.Api/obj/
+backend/Piccolo.Api/appsettings.Development.json
+backend/Piccolo.Api/appsettings.Production.json
+backend/Piccolo.Api/*.user
+backend/Piccolo.Api/*.suo
+backend/Piccolo.Api/.vs/
+
+# Database
+backend/Piccolo.Api/*.db
+backend/Piccolo.Api/*.db-shm
+backend/Piccolo.Api/*.db-wal
+backend/Piccolo.Api/app.db*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets - NIGDY NIE COMMITUJ!
+*.env.local
+*.env.production
+*secret*
+*key*
+.env
