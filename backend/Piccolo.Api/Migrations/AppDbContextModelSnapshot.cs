@@ -60,20 +60,48 @@ namespace Piccolo.Api.Migrations
                     b.Property<string>("Barcode")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Brand")
+                        .HasColumnType("TEXT");
+
                     b.Property<double>("CaloriesPer100g")
                         .HasColumnType("REAL");
 
                     b.Property<double>("CarbsPer100g")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("CreatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DataSource")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<double>("FatPer100g")
                         .HasColumnType("REAL");
+
+                    b.Property<float?>("FiberPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<float?>("PackageWeightGrams")
+                        .HasColumnType("REAL");
+
                     b.Property<double>("ProteinPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("SaltPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("SaturatedFatPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("SugarsPer100g")
                         .HasColumnType("REAL");
 
                     b.HasKey("Id");

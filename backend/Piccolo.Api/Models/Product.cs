@@ -19,6 +19,25 @@ public class Product
     
     public string? Barcode { get; set; }
     
+    // Nowe właściwości dla rozszerzonego profilu odżywczego
+    public string? Brand { get; set; }
+    
+    public float? SaturatedFatPer100g { get; set; }
+    
+    public float? SugarsPer100g { get; set; }
+    
+    public float? FiberPer100g { get; set; }
+    
+    public float? SaltPer100g { get; set; }
+    
+    public float? PackageWeightGrams { get; set; }
+    
+    public string DataSource { get; set; } = "System";
+    
+    public string? CreatedByUserId { get; set; }
+    
+    public string? ImageUrl { get; set; }
+    
     // Navigation property - relacja 1:N do DiaryEntry
     public ICollection<DiaryEntry> DiaryEntries { get; set; } = new List<DiaryEntry>();
 }

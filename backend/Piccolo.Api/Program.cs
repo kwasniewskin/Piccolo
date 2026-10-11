@@ -16,6 +16,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserService>();
 
+// Rejestracja HttpClient dla OpenFoodFactsService
+builder.Services.AddHttpClient<OpenFoodFactsService>();
+
 // Konfiguracja Clerk JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
