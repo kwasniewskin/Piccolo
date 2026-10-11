@@ -7,6 +7,7 @@ import { calcMacroPercentages, MEALS, macrosFor } from '@/lib/nutrition'
 import type { Macros, MealType, Product } from '@/lib/types'
 import * as api from '@/lib/api'
 import { MacroCircle } from './macro-circle'
+import { BarcodeScanner } from './barcode-scanner'
 
 type Props = {
   /** Otwiera sheet dla podanej pory posiłku; `null` = zamknięty. */
@@ -23,6 +24,8 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
   const [amount, setAmount] = useState('')
   const [searchResults, setSearchResults] = useState<Product[]>([])
   const [searching, setSearching] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -52,6 +55,8 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
     setPicked(null)
     setAmount('')
     setSearchResults([])
+    setShowScanner(false)
+    setToast(null)
     onClose()
   }
 
@@ -61,9 +66,48 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
   const validAmount = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= 5000
   const preview = picked && validAmount ? macrosFor(picked, amountNum) : null
 
-  function pick(product: Product) {
-    setPicked(product)
-    setAmount(String(product.defaultServing))
+  async function pick(product: Product) {
+    // Jeśli produkt pochodzi z OFF (nie ma jeszcze lokalnego ID), najpierw go zaimportuj
+    if (product.dataSource === 'OFF' || product.id === 0) {
+      console.log('[AddFoodSheet] Product from OFF detected, importing...')
+      const imported = await api.importProduct(product)
+      
+      if (!imported) {
+        console.error('[AddFoodSheet] Failed to import product from OFF')
+        showToast('Nie udało się zaimportować produktu')
+        return
+      }
+      
+      // Użyj zaimportowanego produktu (z prawdziwym ID z bazy)
+      setPicked(imported)
+      setAmount(String(imported.defaultServing))
+    } else {
+      // Produkt już jest w lokalnej bazie
+      setPicked(product)
+      setAmount(String(product.defaultServing))
+    }
+  }
+
+  async function handleBarcodeScan(barcode: string) {
+    setShowScanner(false)
+    setSearching(true)
+
+    const product = await api.getProductByBarcode(barcode)
+    setSearching(false)
+
+    if (!product) {
+      showToast('Nie znaleziono produktu w bazie')
+      console.log('[AddFoodSheet] Product not found for barcode:', barcode)
+      return
+    }
+
+    // Użyj funkcji pick(), która obsługuje lazy loading OFF
+    await pick(product)
+  }
+
+  function showToast(message: string) {
+    setToast(message)
+    setTimeout(() => setToast(null), 3000)
   }
 
   return (
@@ -122,17 +166,24 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                     className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
                   />
                 </label>
-                {/* TODO(future): zaimplementować skaner kodów kreskowych */}
                 <button
                   type="button"
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-secondary px-3 py-3 text-sm font-semibold"
+                  onClick={() => setShowScanner(true)}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-secondary px-3 py-3 text-sm font-semibold transition-transform active:scale-95"
                   aria-label="Scan barcode"
                 >
                   <ScanLine className="size-4" /> Scan
                 </button>
               </div>
             </div>
-            <ul className="flex-1 overflow-y-auto px-4 pb-6">
+
+            {showScanner ? (
+              <BarcodeScanner
+                onScan={handleBarcodeScan}
+                onClose={() => setShowScanner(false)}
+              />
+            ) : (
+              <ul className="flex-1 overflow-y-auto px-4 pb-6">
               {searching && (
                 <li className="py-10 text-center text-sm text-muted-foreground">
                   Wyszukiwanie...
@@ -143,8 +194,8 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                   Brak wyników dla &quot;{query}&quot;
                 </li>
               )}
-              {!searching && searchResults.map((product) => (
-                <li key={product.id}>
+              {!searching && searchResults.map((product, index) => (
+                <li key={product.barcode || `${product.id}-${index}`}>
                   <button
                     type="button"
                     onClick={() => pick(product)}
@@ -162,6 +213,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                 </li>
               ))}
             </ul>
+            )}
           </>
         ) : (
           <PortionForm
@@ -178,6 +230,15 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
               onAdd(meal, picked, amountNum)
             }}
           />
+        )}
+
+        {/* Toast notification */}
+        {toast && (
+          <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2">
+            <div className="rounded-2xl bg-red-500 px-6 py-3 text-sm font-medium text-white shadow-lg">
+              {toast}
+            </div>
+          </div>
         )}
       </div>
     </dialog>

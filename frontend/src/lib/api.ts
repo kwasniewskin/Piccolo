@@ -10,6 +10,9 @@
 import type { DiaryEntry, MealType, Product } from './types'
 import { auth } from '@clerk/nextjs/server'
 
+// API_BASE używa zmiennej środowiskowej lub domyślnie proxy Next.js.
+// To rozwiązuje problem Mixed Content - requesty idą przez Next.js (HTTPS),
+// który wewnętrznie przekierowuje je do backendu (HTTP localhost:5022).
 const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostname}:5022/api` : 'http://localhost:5022/api'
 
 // ---------------------------------------------------------------------------
@@ -17,8 +20,8 @@ const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostn
 // ---------------------------------------------------------------------------
 
 /** 
- * Produkt z backendu – zawiera tylko pola podstawowe.
- * Frontend dodaje `unit`, `defaultServing`, `brand`, `ingredients` lokalnie.
+ * Produkt z backendu – zawiera pola podstawowe + dane z Open Food Facts.
+ * Frontend dodaje `unit`, `defaultServing`, `ingredients` lokalnie.
  */
 type ApiProduct = {
   id: number
@@ -28,6 +31,14 @@ type ApiProduct = {
   fatPer100g: number
   carbsPer100g: number
   barcode?: string
+  brand?: string
+  saturatedFatPer100g?: number
+  sugarsPer100g?: number
+  fiberPer100g?: number
+  saltPer100g?: number
+  packageWeightGrams?: number
+  dataSource?: string
+  imageUrl?: string
 }
 
 /**
@@ -92,16 +103,10 @@ async function getAuthHeaders(): Promise<HeadersInit> {
  */
 function toFrontendProduct(api: ApiProduct): Product {
   return {
-    id: api.id,
-    name: api.name,
-    caloriesPer100g: api.caloriesPer100g,
-    proteinPer100g: api.proteinPer100g,
-    fatPer100g: api.fatPer100g,
-    carbsPer100g: api.carbsPer100g,
-    // Domyślne wartości dla pól, których backend jeszcze nie zwraca
+    ...api,
+    // Domyślne wartości dla pól frontendowych
     unit: 'g',
-    defaultServing: 100,
-    brand: undefined,
+    defaultServing: api.packageWeightGrams || 100,
     ingredients: undefined,
   }
 }
@@ -125,8 +130,9 @@ function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
 
 /**
  * Wyszukuje produkty, których nazwa zawiera podaną frazę.
+ * Hybrydowe wyszukiwanie: lokalna baza + Open Food Facts.
  * 
- * Pusta fraza zwraca domyślną listę wszystkich produktów z bazy.
+ * Pusta fraza zwraca domyślną listę wszystkich produktów z lokalnej bazy.
  *
  * @param query - fraza do wyszukania (np. "mleko", "banana"); pusta = wszystkie produkty
  * @returns tablica produktów lub pusta tablica w przypadku braku wyników lub błędu
@@ -135,7 +141,7 @@ export async function searchProducts(query: string): Promise<Product[]> {
   try {
     const trimmed = query.trim()
     const url = trimmed
-      ? `${API_BASE}/products/search?query=${encodeURIComponent(trimmed)}`
+      ? `${API_BASE}/products/search?name=${encodeURIComponent(trimmed)}`
       : `${API_BASE}/products/search`
     
     const headers = await getAuthHeaders()
@@ -304,5 +310,81 @@ export function cacheProducts(products: Product[]) {
  */
 export function getCachedProducts(): Product[] {
   return Array.from(productCache.values())
+}
+
+/**
+ * Importuje produkt z Open Food Facts do lokalnej bazy.
+ * 
+ * @param product - produkt z OFF (z dataSource === "OFF")
+ * @returns zapisany produkt z nadanym lokalnym ID lub null w przypadku błędu
+ */
+export async function importProduct(product: Product): Promise<Product | null> {
+  try {
+    console.log('[API] Importing product from OFF:', product.name)
+    
+    const response = await fetch(`${API_BASE}/products/import`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(product),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Product import failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      return null
+    }
+
+    const data: ApiProduct = await response.json()
+    const importedProduct = toFrontendProduct(data)
+    
+    // Dodaj do cache
+    productCache.set(importedProduct.id, importedProduct)
+    
+    console.log('[API] Product imported successfully with ID:', importedProduct.id)
+    return importedProduct
+  } catch (error) {
+    console.error('[API] Network error during product import:', error)
+    return null
+  }
+}
+
+/**
+ * Wyszukuje produkt po kodzie kreskowym - najpierw lokalnie, potem w Open Food Facts.
+ * 
+ * @param barcode - kod kreskowy produktu (EAN-13, UPC-A itp.)
+ * @returns produkt lub null jeśli nie znaleziono
+ */
+export async function getProductByBarcode(barcode: string): Promise<Product | null> {
+  try {
+    console.log('[API] Looking up product by barcode:', barcode)
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE}/products/barcode/${barcode}`, { headers })
+    
+    if (response.status === 404) {
+      console.log('[API] Product not found for barcode:', barcode)
+      return null
+    }
+    
+    if (!response.ok) {
+      console.error(`[API] Barcode lookup failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    const data: ApiProduct = await response.json()
+    const product = toFrontendProduct(data)
+    
+    // Dodaj do cache jeśli ma lokalne ID
+    if (product.id > 0) {
+      productCache.set(product.id, product)
+    }
+    
+    console.log('[API] Product found by barcode:', product.name)
+    return product
+  } catch (error) {
+    console.error('[API] Network error during barcode lookup:', error)
+    return null
+  }
 }
 

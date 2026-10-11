@@ -45,9 +45,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${manrope.variable} ${bricolage.variable} bg-background`}>
       <body className="font-sans antialiased">
-        <ClerkProvider>
-          {children}
-        </ClerkProvider>
+          <ClerkProvider>
+            {children}
+          </ClerkProvider>
       </body>
     </html>
   )

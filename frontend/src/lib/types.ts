@@ -19,9 +19,18 @@ export type Product = {
   fatPer100g: number
   carbsPer100g: number
 
-  // --- Pola tylko frontendowe (na razie nie ma ich w backendzie) ---
-  /** Dodatkowy opis/marka wyświetlana pod nazwą. */
+  // --- Pola z backendu (hybrydowe wyszukiwanie + Open Food Facts) ---
+  barcode?: string
   brand?: string
+  saturatedFatPer100g?: number
+  sugarsPer100g?: number
+  fiberPer100g?: number
+  saltPer100g?: number
+  packageWeightGrams?: number
+  dataSource?: string
+  imageUrl?: string
+
+  // --- Pola tylko frontendowe ---
   /** Jednostka wyświetlana w UI. */
   unit: 'g' | 'ml'
   /** Domyślna porcja proponowana przy dodawaniu. */
