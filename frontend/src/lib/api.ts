@@ -15,6 +15,9 @@ import { auth } from '@clerk/nextjs/server'
 // który wewnętrznie przekierowuje je do backendu (HTTP localhost:5022).
 const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostname}:5022/api` : 'http://localhost:5022/api'
 
+// Export API_BASE dla komponentów klienckich
+export { API_BASE }
+
 // ---------------------------------------------------------------------------
 // Typy odpowiedzi z backendu
 // ---------------------------------------------------------------------------

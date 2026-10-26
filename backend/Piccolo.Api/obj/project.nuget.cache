@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "aIPAJ2qJApQ=",
+  "dgSpecHash": "aP7IHs1FrqQ=",
   "success": true,
-  "projectFilePath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\Piccolo.Api.csproj",
+  "projectFilePath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\Piccolo.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\nikod\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\nikod\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\10.0.12\\microsoft.aspnetcore.authentication.jwtbearer.10.0.12.nupkg.sha512",

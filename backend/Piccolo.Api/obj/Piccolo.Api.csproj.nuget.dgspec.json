@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\Piccolo.Api.csproj": {}
+    "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\Piccolo.Api.csproj": {}
   },
   "projects": {
-    "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\Piccolo.Api.csproj": {
+    "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\Piccolo.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\Piccolo.Api.csproj",
+        "projectUniqueName": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\Piccolo.Api.csproj",
         "projectName": "Piccolo.Api",
-        "projectPath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\Piccolo.Api.csproj",
+        "projectPath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\Piccolo.Api.csproj",
         "packagesPath": "C:\\Users\\nikod\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\Piccolo.Api\\obj\\",
+        "outputPath": "C:\\Users\\nikod\\Desktop\\Piccolo\\backend\\piccolo.api\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

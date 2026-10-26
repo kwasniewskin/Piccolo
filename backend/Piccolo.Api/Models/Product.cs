@@ -22,6 +22,10 @@ public class Product
     // Nowe właściwości dla rozszerzonego profilu odżywczego
     public string? Brand { get; set; }
     
+    public string? Manufacturer { get; set; }
+    
+    public string? Ingredients { get; set; }
+    
     public float? SaturatedFatPer100g { get; set; }
     
     public float? SugarsPer100g { get; set; }
@@ -31,6 +35,8 @@ public class Product
     public float? SaltPer100g { get; set; }
     
     public float? PackageWeightGrams { get; set; }
+    
+    public float? DefaultServingGrams { get; set; }
     
     public string DataSource { get; set; } = "System";
     
