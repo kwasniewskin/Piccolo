@@ -316,6 +316,53 @@ export function getCachedProducts(): Product[] {
 }
 
 /**
+ * Tworzy nowy produkt w bazie danych (np. dla Quick Add).
+ * 
+ * @param productData - dane produktu do utworzenia
+ * @returns utworzony produkt z nadanym ID lub null w przypadku błędu
+ */
+export async function createProduct(productData: {
+  name: string
+  brand?: string
+  caloriesPer100g: number
+  proteinPer100g: number
+  fatPer100g: number
+  carbsPer100g: number
+  unit?: string
+  defaultServing?: number
+  dataSource?: string
+}): Promise<Product | null> {
+  try {
+    console.log('[API] Creating new product:', productData.name)
+    
+    const response = await fetch(`${API_BASE}/products`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(productData),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Product creation failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      return null
+    }
+
+    const data: ApiProduct = await response.json()
+    const createdProduct = toFrontendProduct(data)
+    
+    // Dodaj do cache
+    productCache.set(createdProduct.id, createdProduct)
+    
+    console.log('[API] Product created successfully with ID:', createdProduct.id)
+    return createdProduct
+  } catch (error) {
+    console.error('[API] Network error during product creation:', error)
+    return null
+  }
+}
+
+/**
  * Importuje produkt z Open Food Facts do lokalnej bazy.
  * 
  * @param product - produkt z OFF (z dataSource === "OFF")

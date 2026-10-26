@@ -61,6 +61,16 @@ nextjs-portal,
   pointer-events: none !important;
 }
 
+/* Ukrycie strzałek w polach liczbowych (spinners) */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
