@@ -82,6 +82,19 @@ export function sumMacros(items: Macros[]): Macros {
  * Zwraca `null`, gdy produkt nie istnieje (np. został usunięty).
  */
 export function toEntryView(entry: DiaryEntry, products: Product[]): DiaryEntryView | null {
+  // Szybki wpis (Quick Add) – brak produktu, makro podane bezpośrednio
+  if (entry.productId == null && entry.customName) {
+    const round1 = (n: number) => Math.round(n * 10) / 10
+    return {
+      ...entry,
+      kcal: Math.round(entry.customCalories ?? 0),
+      protein: round1(entry.customProtein ?? 0),
+      fat: round1(entry.customFat ?? 0),
+      carbs: round1(entry.customCarbs ?? 0),
+      productName: entry.customName,
+      unit: '',  // Brak jednostki dla custom entries (to nie są gramy)
+    }
+  }
   const product = products.find((p) => p.id === entry.productId)
   if (!product) return null
   return {

@@ -94,7 +94,7 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2">
                       <p className="text-xs tabular-nums text-muted-foreground">
-                        {entry.amountInGrams} {entry.unit}
+                        {entry.unit ? `${entry.amountInGrams} ${entry.unit}` : ''}
                       </p>
                       <MacroLine macros={entry} language={language} />
                     </div>

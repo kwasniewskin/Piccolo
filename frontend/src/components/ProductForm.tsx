@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Camera } from 'lucide-react';
 import { API_BASE } from '@/lib/api';
 
 interface ProductFormProps {
@@ -27,16 +28,16 @@ export interface ProductFormData {
   barcode?: string;
   name: string;
   manufacturer?: string;
-  calories: number;
-  protein: number;
-  fat: number;
-  saturatedFat: number;
-  carbs: number;
-  sugars: number;
-  fiber: number;
-  salt: number;
-  packageWeight: number;
-  defaultServing: number;
+  calories: string | number;
+  protein: string | number;
+  fat: string | number;
+  saturatedFat: string | number;
+  carbs: string | number;
+  sugars: string | number;
+  fiber: string | number;
+  salt: string | number;
+  packageWeight: string | number;
+  defaultServing: string | number;
   ingredients?: string;
 }
 
@@ -54,30 +55,93 @@ function ProductFormContent({
     barcode: finalBarcode || '',
     name: initialData?.name || '',
     manufacturer: '',
-    calories: initialData?.calories || 0,
-    protein: initialData?.protein || 0,
-    fat: initialData?.fat || 0,
-    saturatedFat: initialData?.saturatedFat || 0,
-    carbs: initialData?.carbs || 0,
-    sugars: initialData?.sugars || 0,
-    fiber: initialData?.fiber || 0,
-    salt: initialData?.salt || 0,
-    packageWeight: initialData?.packageWeight || 0,
-    defaultServing: initialData?.defaultServing || 0,
+    calories: initialData?.calories || '',
+    protein: initialData?.protein || '',
+    fat: initialData?.fat || '',
+    saturatedFat: initialData?.saturatedFat || '',
+    carbs: initialData?.carbs || '',
+    sugars: initialData?.sugars || '',
+    fiber: initialData?.fiber || '',
+    salt: initialData?.salt || '',
+    packageWeight: initialData?.packageWeight || '',
+    defaultServing: initialData?.defaultServing || '',
     ingredients: '',
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [existingProductId, setExistingProductId] = useState<number | string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sprawdź duplikat po załadowaniu komponentu, jeśli jest kod kreskowy z URL
+  React.useEffect(() => {
+    if (finalBarcode) {
+      checkBarcodeDuplicate(finalBarcode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'name' || name === 'barcode' || name === 'manufacturer' || name === 'ingredients' ? value : parseFloat(value) || 0,
-    }));
+    
+    // Dla pól tekstowych zapisz wartość bezpośrednio
+    if (name === 'name' || name === 'barcode' || name === 'manufacturer' || name === 'ingredients') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    } else {
+      // Dla pól numerycznych zachowaj pusty string, w przeciwnym razie zapisz wartość
+      setFormData(prev => ({
+        ...prev,
+        [name]: value === '' ? '' : value,
+      }));
+    }
+
+    // Sprawdź duplikat gdy pole barcode zostanie zmienione
+    if (name === 'barcode' && value.trim()) {
+      checkBarcodeDuplicate(value.trim());
+    }
+  };
+
+  const checkBarcodeDuplicate = async (barcode: string) => {
+    if (!barcode) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/products/barcode/${barcode}`, {
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const product = await response.json();
+        
+        // Produkt istnieje w bazie - wypełnij formularz (mapuj z backendu do frontu)
+        setExistingProductId(product.id);
+        setFormData({
+          barcode: product.barcode || '',
+          name: product.name || '',
+          manufacturer: product.manufacturer || '',
+          calories: product.caloriesPer100g || '',
+          protein: product.proteinPer100g || '',
+          fat: product.fatPer100g || '',
+          saturatedFat: product.saturatedFatPer100g || '',
+          carbs: product.carbsPer100g || '',
+          sugars: product.sugarsPer100g || '',
+          fiber: product.fiberPer100g || '',
+          salt: product.saltPer100g || '',
+          packageWeight: product.packageWeightGrams || '',
+          defaultServing: product.defaultServingGrams || '',
+          ingredients: product.ingredients || '',
+        });
+      } else if (response.status === 404) {
+        // Produkt nie istnieje - to jest nowy produkt
+        setExistingProductId(null);
+      }
+    } catch (error) {
+      console.error('Error checking barcode duplicate:', error);
+      // Ignoruj błędy sprawdzania - pozwól użytkownikowi kontynuować
+    }
   };
 
   const handleCameraClick = () => {
@@ -130,18 +194,24 @@ function ProductFormContent({
           name: prev.name || productData.name || '',
           manufacturer: prev.manufacturer || productData.manufacturer || '',
           barcode: !prev.barcode || prev.barcode.trim() === '' ? (productData.barcode || '') : prev.barcode,
-          packageWeight: prev.packageWeight || productData.weight || 0,
+          packageWeight: prev.packageWeight || productData.weight || '',
           // Makroskładniki i składniki zawsze nadpisz
-          calories: productData.calories || 0,
-          protein: productData.protein || 0,
-          fat: productData.fat || 0,
-          saturatedFat: productData.saturatedFat || 0,
-          carbs: productData.carbs || 0,
-          sugars: productData.sugars || 0,
-          fiber: productData.fiber || 0,
-          salt: productData.salt || 0,
+          // Używamy ?? zamiast || aby 0 było akceptowane jako prawidłowa wartość
+          calories: productData.calories ?? '',
+          protein: productData.protein ?? '',
+          fat: productData.fat ?? '',
+          saturatedFat: productData.saturatedFat ?? '',
+          carbs: productData.carbs ?? '',
+          sugars: productData.sugars ?? '',
+          fiber: productData.fiber ?? '',
+          salt: productData.salt ?? '',
           ingredients: productData.ingredients || '',
         }));
+
+        // Sprawdź czy kod kreskowy istnieje w bazie
+        if (productData.barcode) {
+          checkBarcodeDuplicate(productData.barcode);
+        }
 
         console.log('Analiza zakończona pomyślnie:', productData);
       } catch (error) {
@@ -190,13 +260,29 @@ function ProductFormContent({
         imageUrl: null,
       };
 
-      const response = await fetch(`${API_BASE}/products`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(productPayload),
-      });
+      let response;
+      
+      if (existingProductId) {
+        // Aktualizacja istniejącego produktu (PUT)
+        response = await fetch(`${API_BASE}/products/${existingProductId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(productPayload),
+        });
+      } else {
+        // Dodawanie nowego produktu (POST)
+        response = await fetch(`${API_BASE}/products`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(productPayload),
+        });
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -211,28 +297,29 @@ function ProductFormContent({
       onSave?.(formData);
 
       // Wyświetl komunikat sukcesu
-      alert('Dodano produkt!');
+      alert(existingProductId ? 'Zaktualizowano produkt!' : 'Dodano produkt!');
 
       // Zresetuj formularz do stanu początkowego
       setFormData({
         barcode: '',
         name: '',
         manufacturer: '',
-        calories: 0,
-        protein: 0,
-        fat: 0,
-        saturatedFat: 0,
-        carbs: 0,
-        sugars: 0,
-        fiber: 0,
-        salt: 0,
-        packageWeight: 0,
-        defaultServing: 0,
+        calories: '',
+        protein: '',
+        fat: '',
+        saturatedFat: '',
+        carbs: '',
+        sugars: '',
+        fiber: '',
+        salt: '',
+        packageWeight: '',
+        defaultServing: '',
         ingredients: '',
       });
 
-      // Wyczyść podgląd obrazu
+      // Wyczyść podgląd obrazu i istniejący produkt
       setImagePreview(null);
+      setExistingProductId(null);
     } catch (error) {
       console.error('Błąd podczas zapisywania:', error);
       alert('Wystąpił błąd podczas zapisywania produktu. Spróbuj ponownie.');
@@ -248,6 +335,14 @@ function ProductFormContent({
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
       <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+        {/* Baner informacyjny o istniejącym produkcie */}
+        {existingProductId && (
+          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
+            <span className="mr-2">ℹ️</span>
+            Ten produkt znajduje się już w bazie danych! Wczytaliśmy jego dane. Możesz je przejrzeć, poprawić i zapisać zmiany.
+          </div>
+        )}
+
         <h2 className="text-3xl font-bold text-foreground">
           {finalBarcode ? 'Edytuj produkt' : 'Dodaj nowy produkt'}
         </h2>
@@ -285,31 +380,14 @@ function ProductFormContent({
                 <span className="text-base">Analizowanie tabeli...</span>
               </>
             ) : (
-              <>
-                <svg 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  className="h-6 w-6" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" 
-                  />
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" 
-                  />
-                </svg>
-                <span className="text-base">Wypełnij ze zdjęcia tabeli (AI)</span>
-              </>
+              <span className="text-base flex items-center"><Camera className="w-5 h-5 mr-2 inline" /> Uzupełnij ze zdjęcia</span>
             )}
           </button>
+          
+          {/* Tekst pomocniczy */}
+          <p className="text-left text-sm mt-2 text-muted-foreground px-1 block">
+            Zrób zdjęcie etykiety z nazwą, tabelą wartości odżywczych i składem. Im więcej informacji na zdjęciach, tym mniej wpisujesz ręcznie.
+          </p>
           
           <input
             ref={fileInputRef}

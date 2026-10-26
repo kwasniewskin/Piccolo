@@ -57,7 +57,8 @@ builder.Services.AddCors(options =>
                 "http://192.168.100.5:3001"
             )
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .AllowCredentials();  // Umożliwia wysyłanie credentials (sesje Clerk)
     });
 });
 

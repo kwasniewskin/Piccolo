@@ -35,7 +35,8 @@ public class AppDbContext : DbContext
             entity.HasOne(d => d.Product)
                 .WithMany(p => p.DiaryEntries)
                 .HasForeignKey(d => d.ProductId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull) // Zmieniono z Cascade na SetNull bo ProductId jest teraz opcjonalny
+                .IsRequired(false); // ProductId może być null
             
             // Konfiguracja relacji User -> DiaryEntry (1:N)
             entity.HasOne(d => d.User)
