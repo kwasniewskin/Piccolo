@@ -42,11 +42,17 @@ export type Product = {
 /** Pojedynczy wpis w dzienniku: „zjadłem X gramów produktu Y w dniu Z”. */
 export type DiaryEntry = {
   id: number
-  productId: number
+  productId?: number // Opcjonalny - może być null dla szybkich wpisów
   amountInGrams: number
   /** Data w formacie `YYYY-MM-DD` (bez godziny – liczy się tylko dzień). */
   date: string
   mealType: MealType
+  // Pola dla szybkich wpisów (bez produktu w bazie)
+  customName?: string
+  customCalories?: number
+  customProtein?: number
+  customFat?: number
+  customCarbs?: number
 }
 
 /** Wyliczone makroskładniki dla konkretnej ilości produktu. */
@@ -64,5 +70,5 @@ export type Macros = {
 export type DiaryEntryView = DiaryEntry &
   Macros & {
     productName: string
-    unit: Product['unit']
+    unit: Product['unit'] | ''  // Pusty string dla custom entries (szybkie dodanie)
   }

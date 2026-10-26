@@ -51,19 +51,31 @@ type ApiDiaryEntry = {
   id: number
   date: string // "2026-10-05"
   mealType: MealType
-  productId: number
+  productId?: number | null
   amountInGrams: number
-  product: ApiProduct
+  product?: ApiProduct | null
+  customName?: string
+  customCalories?: number
+  customProtein?: number
+  customFat?: number
+  customCarbs?: number
 }
 
 /**
  * DTO do tworzenia nowego wpisu w dzienniku.
+ * Wspiera zarówno wpisy z produktem z bazy (productId), jak i szybkie wpisy (custom*).
  */
 type CreateDiaryEntryDto = {
   date: string // "2026-10-05"
   mealType: MealType
-  productId: number
-  amountInGrams: number
+  productId?: number // Opcjonalny - dla wpisów z bazy
+  amountInGrams: number | null // Opcjonalny - null dla szybkich wpisów
+  // Pola dla szybkich wpisów (Quick Add)
+  customName?: string
+  customCalories?: number
+  customProtein?: number
+  customFat?: number
+  customCarbs?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -122,8 +134,13 @@ function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
     id: api.id,
     date: api.date,
     mealType: api.mealType,
-    productId: api.productId,
+    productId: api.productId ?? undefined,
     amountInGrams: api.amountInGrams,
+    customName: api.customName,
+    customCalories: api.customCalories,
+    customProtein: api.customProtein,
+    customFat: api.customFat,
+    customCarbs: api.customCarbs,
   }
 }
 
@@ -195,21 +212,23 @@ export async function getDiaryEntries(date: string): Promise<DiaryEntry[]> {
 
 /**
  * Dodaje nowy wpis do dziennika.
+ * Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy.
  * 
+ * @param amountInGrams - ilość w gramach (opcjonalne dla szybkich wpisów - null)
  * @returns utworzony wpis lub null w przypadku błędu
  */
 export async function createDiaryEntry(
   date: string,
   mealType: MealType,
-  productId: number,
-  amountInGrams: number,
+  amountInGrams: number | null,
+  options: { productId?: number; customName?: string; customCalories?: number; customProtein?: number; customFat?: number; customCarbs?: number } = {}
 ): Promise<DiaryEntry | null> {
   try {
     const dto: CreateDiaryEntryDto = {
       date,
       mealType,
-      productId,
-      amountInGrams,
+      amountInGrams: amountInGrams ?? 0,
+      ...options,
     }
 
     console.log('[API] Creating diary entry:', dto)

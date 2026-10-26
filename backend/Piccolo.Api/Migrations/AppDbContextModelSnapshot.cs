@@ -26,13 +26,28 @@ namespace Piccolo.Api.Migrations
                     b.Property<double>("AmountInGrams")
                         .HasColumnType("REAL");
 
+                    b.Property<float?>("CustomCalories")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("CustomCarbs")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("CustomFat")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("CustomName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<float?>("CustomProtein")
+                        .HasColumnType("REAL");
+
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("MealType")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ProductId")
+                    b.Property<int?>("ProductId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("UserId")
@@ -153,8 +168,7 @@ namespace Piccolo.Api.Migrations
                     b.HasOne("Piccolo.Api.Models.Product", "Product")
                         .WithMany("DiaryEntries")
                         .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("Piccolo.Api.Models.User", "User")
                         .WithMany("DiaryEntries")

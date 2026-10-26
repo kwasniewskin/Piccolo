@@ -40,6 +40,7 @@ public class DiaryController : ControllerBase
 
     /// <summary>
     /// Dodaje nowy wpis do dziennika żywieniowego (dla zalogowanego użytkownika).
+    /// Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy (Quick Add).
     /// POST /api/diary
     /// </summary>
     [HttpPost]
@@ -51,13 +52,25 @@ public class DiaryController : ControllerBase
         var userId = await _userService.GetCurrentUserIdAsync();
         Console.WriteLine($"[DiaryController] UserId: {userId}");
         
+        // Walidacja: musi być albo ProductId, albo pola Custom*
+        if (dto.ProductId == null && string.IsNullOrWhiteSpace(dto.CustomName))
+        {
+            return BadRequest("Wpis musi zawierać albo ProductId, albo dane produktu (CustomName, CustomCalories, etc.)");
+        }
+        
         var entry = new DiaryEntry
         {
             Date = dto.Date,
             MealType = dto.MealType,
             ProductId = dto.ProductId,
             AmountInGrams = dto.AmountInGrams,
-            UserId = userId
+            UserId = userId,
+            // Pola dla szybkich wpisów
+            CustomName = dto.CustomName,
+            CustomCalories = dto.CustomCalories,
+            CustomProtein = dto.CustomProtein,
+            CustomFat = dto.CustomFat,
+            CustomCarbs = dto.CustomCarbs
         };
 
         _context.DiaryEntries.Add(entry);
@@ -65,8 +78,11 @@ public class DiaryController : ControllerBase
         
         Console.WriteLine($"[DiaryController] Entry saved with ID: {entry.Id}");
 
-        // Załaduj Product dla zwracanego obiektu
-        await _context.Entry(entry).Reference(e => e.Product).LoadAsync();
+        // Załaduj Product dla zwracanego obiektu (jeśli ProductId != null)
+        if (entry.ProductId.HasValue)
+        {
+            await _context.Entry(entry).Reference(e => e.Product).LoadAsync();
+        }
 
         return CreatedAtAction(nameof(GetById), new { id = entry.Id }, entry);
     }

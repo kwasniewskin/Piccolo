@@ -22,12 +22,16 @@ const mealTranslations: Record<string, string> = {
 type Props = {
   /** Otwiera sheet dla podanej pory posiłku; `null` = zamknięty. */
   meal: MealType | null
+  /** Data wpisu w formacie YYYY-MM-DD */
+  date: string
   onClose: () => void
   /** Wywoływane po potwierdzeniu – pora posiłku, wybrany produkt i ilość. */
   onAdd: (meal: MealType, product: Product, amountInGrams: number) => void
+  /** Wywoływane po dodaniu szybkiego wpisu – do odświeżenia listy */
+  onQuickAddComplete?: () => void
 }
 
-export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
+export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }: Props) {
   const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')
@@ -95,10 +99,21 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
   const preview = picked && validAmount ? macrosFor(picked, amountNum) : null
 
   async function pick(product: Product) {
+    // Nie importuj jeszcze produktu - po prostu wybierz go do edycji
+    // Import nastąpi dopiero gdy użytkownik kliknie "Dodaj do [posiłku]"
+    setPicked(product)
+    setAmount(String(product.defaultServing))
+  }
+
+  async function handleAdd() {
+    if (!meal || !picked || !validAmount) return
+
+    let productToAdd = picked
+
     // Jeśli produkt pochodzi z OFF (nie ma jeszcze lokalnego ID), najpierw go zaimportuj
-    if (product.dataSource === 'OFF' || product.id === 0) {
-      console.log('[AddFoodSheet] Product from OFF detected, importing...')
-      const imported = await api.importProduct(product)
+    if (picked.dataSource === 'OFF' || picked.id === 0) {
+      console.log('[AddFoodSheet] Product from OFF detected, importing before adding to diary...')
+      const imported = await api.importProduct(picked)
       
       if (!imported) {
         console.error('[AddFoodSheet] Failed to import product from OFF')
@@ -106,14 +121,11 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
         return
       }
       
-      // Użyj zaimportowanego produktu (z prawdziwym ID z bazy)
-      setPicked(imported)
-      setAmount(String(imported.defaultServing))
-    } else {
-      // Produkt już jest w lokalnej bazie
-      setPicked(product)
-      setAmount(String(product.defaultServing))
+      productToAdd = imported
     }
+
+    // Dodaj produkt do dziennika
+    onAdd(meal, productToAdd, amountNum)
   }
 
   async function handleBarcodeScan(barcode: string) {
@@ -168,30 +180,27 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
     }
 
     try {
-      // Utwórz produkt w bazie danych
-      const newProduct = await api.createProduct({
-        name: quickAddName.trim() || 'Szybki wpis',
-        brand: '',
-        caloriesPer100g: calories,
-        proteinPer100g: protein,
-        fatPer100g: fat,
-        carbsPer100g: carbs,
-        unit: 'g',
-        defaultServing: 100,
-        dataSource: 'QuickAdd'
+      // Wyślij dane bezpośrednio do endpointu dziennika (bez tworzenia produktu)
+      // Dla custom entries nie wysyłamy AmountInGrams (wartości są bezpośrednie, nie per 100g)
+      const entry = await api.createDiaryEntry(date, meal, null, {
+        customName: quickAddName.trim() || 'Szybki wpis',
+        customCalories: calories,
+        customProtein: protein,
+        customFat: fat,
+        customCarbs: carbs,
       })
 
-      if (!newProduct) {
-        showToast('Nie udało się dodać produktu. Sprawdź połączenie z serwerem.')
+      if (!entry) {
+        showToast('Nie udało się dodać wpisu. Sprawdź połączenie z serwerem.')
         return
       }
 
-      // Dodaj jako 100g
-      onAdd(meal, newProduct, 100)
+      // Zamknij modal i odśwież listę
       handleClose()
+      onQuickAddComplete?.()
     } catch (error) {
-      console.error('Błąd przy dodawaniu szybkiego produktu:', error)
-      showToast('Nie udało się dodać produktu. Sprawdź połączenie z serwerem.')
+      console.error('Błąd przy dodawaniu szybkiego wpisu:', error)
+      showToast('Nie udało się dodać wpisu. Sprawdź połączenie z serwerem.')
     }
   }
 
@@ -298,7 +307,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                   onClick={() => setScannedBarcode(null)}
                   className="mt-4 text-sm text-muted-foreground underline"
                 >
-                  Wróć do wyszukiwania
+                  Wróć
                 </button>
               </div>
             ) : isQuickAddMode ? (
@@ -394,7 +403,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                       onClick={() => setIsQuickAddMode(false)}
                       className="flex-1 rounded-full bg-secondary py-3 text-base font-semibold transition-transform active:scale-[0.98]"
                     >
-                      Wróć do wyszukiwania
+                      Wróć
                     </button>
                     <button
                       type="button"
@@ -446,7 +455,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
               <div className="sticky bottom-0 bg-background border-t p-4 flex gap-2 z-10">
                 <button
                   type="button"
-                  onClick={() => router.push('/add-product')}
+                  onClick={() => router.push(`/add-product?mealType=${meal}&date=${date}`)}
                   className="flex-1 rounded-full border border-border bg-background py-3 text-sm font-semibold transition-transform active:scale-[0.98] hover:bg-secondary"
                 >
                   Nowy produkt
@@ -470,11 +479,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
             validAmount={validAmount}
             preview={preview}
             mealLabel={mealLabelPL}
-            onSubmit={() => {
-              if (!meal || !validAmount) return
-              // TODO(backend): POST /api/diary { productId, amountInGrams, date, mealType }
-              onAdd(meal, picked, amountNum)
-            }}
+            onSubmit={handleAdd}
           />
         )}
 

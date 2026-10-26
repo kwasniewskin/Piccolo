@@ -150,6 +150,41 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
+    /// Aktualizuje istniejący produkt w bazie danych.
+    /// PUT /api/products/{id}
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<ActionResult<Product>> Update(int id, [FromBody] Product product)
+    {
+        var existingProduct = await _context.Products.FindAsync(id);
+
+        if (existingProduct == null)
+        {
+            return NotFound(new { message = "Product not found" });
+        }
+
+        // Aktualizuj pola
+        existingProduct.Barcode = product.Barcode;
+        existingProduct.Name = product.Name;
+        existingProduct.Manufacturer = product.Manufacturer;
+        existingProduct.CaloriesPer100g = product.CaloriesPer100g;
+        existingProduct.ProteinPer100g = product.ProteinPer100g;
+        existingProduct.FatPer100g = product.FatPer100g;
+        existingProduct.SaturatedFatPer100g = product.SaturatedFatPer100g;
+        existingProduct.CarbsPer100g = product.CarbsPer100g;
+        existingProduct.SugarsPer100g = product.SugarsPer100g;
+        existingProduct.FiberPer100g = product.FiberPer100g;
+        existingProduct.SaltPer100g = product.SaltPer100g;
+        existingProduct.PackageWeightGrams = product.PackageWeightGrams;
+        existingProduct.DefaultServingGrams = product.DefaultServingGrams;
+        existingProduct.Ingredients = product.Ingredients;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(existingProduct);
+    }
+
+    /// <summary>
     /// Usuwa wszystkie przykładowe produkty (bez kodu kreskowego).
     /// DELETE /api/products/sample-products
     /// WAŻNE: Musi być PRZED endpointem DELETE {id}, aby routing działał poprawnie
