@@ -76,6 +76,9 @@ namespace Piccolo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<float?>("DefaultServingGrams")
+                        .HasColumnType("REAL");
+
                     b.Property<double>("FatPer100g")
                         .HasColumnType("REAL");
 
@@ -83,6 +86,12 @@ namespace Piccolo.Api.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<string>("ImageUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Ingredients")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Manufacturer")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")

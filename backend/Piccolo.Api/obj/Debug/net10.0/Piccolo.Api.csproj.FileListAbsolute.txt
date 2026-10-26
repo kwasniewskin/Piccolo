@@ -162,3 +162,4 @@ C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.I
 C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
 C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\Microsoft.IdentityModel.Tokens.dll
 C:\Users\nikod\Desktop\Piccolo\backend\Piccolo.Api\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
+C:\Users\nikod\Desktop\Piccolo\backend\piccolo.api\obj\Debug\net10.0\Piccolo.Api.sourcelink.json

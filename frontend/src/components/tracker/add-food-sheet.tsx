@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronRight, ScanLine, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calcMacroPercentages, MEALS, macrosFor } from '@/lib/nutrition'
@@ -18,6 +19,7 @@ type Props = {
 }
 
 export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
+  const router = useRouter()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<Product | null>(null)
@@ -26,6 +28,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
   const [searching, setSearching] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -57,6 +60,7 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
     setSearchResults([])
     setShowScanner(false)
     setToast(null)
+    setScannedBarcode(null)
     onClose()
   }
 
@@ -96,13 +100,23 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
     setSearching(false)
 
     if (!product) {
-      showToast('Nie znaleziono produktu w bazie')
+      // Zapisz kod kreskowy i wyświetl opcję dodania ręcznego
+      setScannedBarcode(barcode)
       console.log('[AddFoodSheet] Product not found for barcode:', barcode)
       return
     }
 
+    // Produkt znaleziony - wyczyść stan i użyj normalnego flow
+    setScannedBarcode(null)
     // Użyj funkcji pick(), która obsługuje lazy loading OFF
     await pick(product)
+  }
+
+  function handleAddManually() {
+    if (scannedBarcode) {
+      // Przekieruj na formularz z kodem kreskowym
+      router.push(`/add-product?barcode=${scannedBarcode}`)
+    }
   }
 
   function showToast(message: string) {
@@ -182,6 +196,32 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                 onScan={handleBarcodeScan}
                 onClose={() => setShowScanner(false)}
               />
+            ) : scannedBarcode ? (
+              // Wyświetl informację o nieznanym produkcie i przycisk do ręcznego dodania
+              <div className="flex flex-1 flex-col items-center justify-center px-4 pb-6">
+                <div className="mb-6 text-center">
+                  <div className="mb-2 text-lg font-semibold text-foreground">
+                    Nie znaleziono produktu
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Kod: {scannedBarcode}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddManually}
+                  className="w-full max-w-md rounded-2xl bg-primary px-6 py-4 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95"
+                >
+                  Nie znaleziono produktu. Dodaj go ręcznie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScannedBarcode(null)}
+                  className="mt-4 text-sm text-muted-foreground underline"
+                >
+                  Wróć do wyszukiwania
+                </button>
+              </div>
             ) : (
               <ul className="flex-1 overflow-y-auto px-4 pb-6">
               {searching && (
@@ -190,8 +230,29 @@ export function AddFoodSheet({ meal, onClose, onAdd }: Props) {
                 </li>
               )}
               {!searching && query.trim() && searchResults.length === 0 && (
-                <li className="py-10 text-center text-sm text-muted-foreground">
-                  Brak wyników dla &quot;{query}&quot;
+                <li className="flex flex-col items-center gap-4 py-10">
+                  <p className="text-center text-sm text-muted-foreground">
+                    Brak wyników dla &quot;{query}&quot;
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/add-product')}
+                    className="flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95"
+                  >
+                    <svg 
+                      xmlns="http://www.w3.org/2000/svg" 
+                      className="h-5 w-5" 
+                      viewBox="0 0 20 20" 
+                      fill="currentColor"
+                    >
+                      <path 
+                        fillRule="evenodd" 
+                        d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" 
+                        clipRule="evenodd" 
+                      />
+                    </svg>
+                    Nie znalazłeś produktu? Dodaj go samodzielnie
+                  </button>
                 </li>
               )}
               {!searching && searchResults.map((product, index) => (
