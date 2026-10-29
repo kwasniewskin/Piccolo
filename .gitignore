@@ -11,13 +11,21 @@ frontend/.vercel
 frontend/.turbo
 
 # Backend (.NET)
-backend/Piccolo.Api/bin/
-backend/Piccolo.Api/obj/
+**/bin/
+**/obj/
+**/*.user
+**/*.suo
+**/.vs/
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.opendb
+*.VC.db
+*.VC.VC.opendb
 backend/Piccolo.Api/appsettings.Development.json
 backend/Piccolo.Api/appsettings.Production.json
-backend/Piccolo.Api/*.user
-backend/Piccolo.Api/*.suo
-backend/Piccolo.Api/.vs/
 
 # Database
 backend/Piccolo.Api/*.db
