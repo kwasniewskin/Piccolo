@@ -261,7 +261,7 @@ public class DiaryControllerTests : IClassFixture<CustomWebApplicationFactory>
     #region User Isolation Tests - CRITICAL for Security
 
     [Fact]
-    public async Task GetDiaryEntry_ByAnotherUser_ReturnsNotFound()
+    public async Task GetDiaryEntry_ByAnotherUser_ReturnsForbidden()
     {
         // Arrange - User 1 creates an entry
         TestAuthHandler.SwitchToUser1();
@@ -279,14 +279,14 @@ public class DiaryControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.GetAsync($"/api/diary/{createdEntry!.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         
         // Cleanup - switch back to User 1
         TestAuthHandler.SwitchToUser1();
     }
 
     [Fact]
-    public async Task DeleteDiaryEntry_ByAnotherUser_ReturnsNotFound()
+    public async Task DeleteDiaryEntry_ByAnotherUser_ReturnsForbidden()
     {
         // Arrange - User 1 creates an entry
         TestAuthHandler.SwitchToUser1();
@@ -304,7 +304,7 @@ public class DiaryControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.DeleteAsync($"/api/diary/{createdEntry!.Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         
         // Cleanup - switch back to User 1
         TestAuthHandler.SwitchToUser1();
