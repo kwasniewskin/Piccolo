@@ -32,6 +32,7 @@ backend/Piccolo.Api/*.db
 backend/Piccolo.Api/*.db-shm
 backend/Piccolo.Api/*.db-wal
 backend/Piccolo.Api/app.db*
+*.backup
 
 # Logs
 *.log
