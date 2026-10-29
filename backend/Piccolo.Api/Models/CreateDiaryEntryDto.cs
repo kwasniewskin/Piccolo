@@ -11,6 +11,13 @@ public class CreateDiaryEntryDto
     public MealType MealType { get; set; }
     
     /// <summary>
+    /// ID użytkownika, dla którego tworzymy wpis.
+    /// Jeśli null, wpis jest tworzony dla zalogowanego użytkownika.
+    /// Jeśli podane, sprawdzane są uprawnienia partnerskie.
+    /// </summary>
+    public int? TargetUserId { get; set; }
+    
+    /// <summary>
     /// Opcjonalny ID produktu z bazy. Null dla szybkich wpisów.
     /// </summary>
     public int? ProductId { get; set; }

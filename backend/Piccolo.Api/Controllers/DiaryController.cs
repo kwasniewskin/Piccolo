@@ -14,22 +14,37 @@ public class DiaryController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly UserService _userService;
+    private readonly PartnerService _partnerService;
 
-    public DiaryController(AppDbContext context, UserService userService)
+    public DiaryController(AppDbContext context, UserService userService, PartnerService partnerService)
     {
         _context = context;
         _userService = userService;
+        _partnerService = partnerService;
     }
 
     /// <summary>
-    /// Pobiera wszystkie wpisy z dziennika dla danej daty (tylko dla zalogowanego użytkownika).
-    /// GET /api/diary?date=2026-10-05
+    /// Pobiera wszystkie wpisy z dziennika dla danej daty.
+    /// Domyślnie pobiera dziennik zalogowanego użytkownika.
+    /// Jeśli targetUserId jest podane i użytkownik ma połączenie partnerskie, pobiera dziennik partnera.
+    /// GET /api/diary?date=2026-10-05&targetUserId=2
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<DiaryEntry>>> Get([FromQuery] DateOnly date)
+    public async Task<ActionResult<IEnumerable<DiaryEntry>>> Get([FromQuery] DateOnly date, [FromQuery] int? targetUserId = null)
     {
-        var userId = await _userService.GetCurrentUserIdAsync();
-        
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
+        var userId = targetUserId ?? currentUserId;
+
+        // Sprawdź uprawnienia (jeśli targetUserId != currentUserId)
+        if (userId != currentUserId)
+        {
+            var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, userId);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
+
         var entries = await _context.DiaryEntries
             .Include(e => e.Product)
             .Where(e => e.UserId == userId && e.Date == date)
@@ -39,7 +54,9 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Dodaje nowy wpis do dziennika żywieniowego (dla zalogowanego użytkownika).
+    /// Dodaje nowy wpis do dziennika żywieniowego.
+    /// Domyślnie dodaje wpis dla zalogowanego użytkownika.
+    /// Jeśli TargetUserId jest podane i użytkownik ma połączenie partnerskie, dodaje wpis dla partnera.
     /// Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy (Quick Add).
     /// POST /api/diary
     /// </summary>
@@ -47,10 +64,22 @@ public class DiaryController : ControllerBase
     public async Task<ActionResult<DiaryEntry>> Create([FromBody] CreateDiaryEntryDto dto)
     {
         Console.WriteLine($"[DiaryController] Received POST request");
-        Console.WriteLine($"[DiaryController] DTO: Date={dto.Date}, MealType={dto.MealType}, ProductId={dto.ProductId}, Amount={dto.AmountInGrams}");
+        Console.WriteLine($"[DiaryController] DTO: Date={dto.Date}, MealType={dto.MealType}, ProductId={dto.ProductId}, Amount={dto.AmountInGrams}, TargetUserId={dto.TargetUserId}");
         
-        var userId = await _userService.GetCurrentUserIdAsync();
-        Console.WriteLine($"[DiaryController] UserId: {userId}");
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
+        var targetUserId = dto.TargetUserId ?? currentUserId;
+        
+        // Sprawdź uprawnienia (jeśli targetUserId != currentUserId)
+        if (targetUserId != currentUserId)
+        {
+            var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, targetUserId);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
+        
+        Console.WriteLine($"[DiaryController] CurrentUserId: {currentUserId}, TargetUserId: {targetUserId}");
         
         // Walidacja: musi być albo ProductId, albo pola Custom*
         if (dto.ProductId == null && string.IsNullOrWhiteSpace(dto.CustomName))
@@ -74,7 +103,8 @@ public class DiaryController : ControllerBase
             MealType = dto.MealType,
             ProductId = dto.ProductId,
             AmountInGrams = dto.AmountInGrams,
-            UserId = userId,
+            UserId = targetUserId,
+            CreatedByUserId = currentUserId,
             // Pola dla szybkich wpisów
             CustomName = dto.CustomName,
             CustomCalories = dto.CustomCalories,
@@ -98,22 +128,29 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Aktualizuje wpis w dzienniku (tylko jeśli należy do zalogowanego użytkownika).
+    /// Aktualizuje wpis w dzienniku (tylko jeśli należy do użytkownika lub jego partnera).
     /// Pozwala na zmianę gramatury dla wpisów standardowych lub wartości makro dla wpisów customowych.
     /// PUT /api/diary/{id}
     /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult<DiaryEntry>> Update(int id, [FromBody] UpdateDiaryEntryDto dto)
     {
-        var userId = await _userService.GetCurrentUserIdAsync();
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
         
         var entry = await _context.DiaryEntries
             .Include(e => e.Product)
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)
         {
             return NotFound();
+        }
+
+        // Sprawdź uprawnienia
+        var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
+        if (!hasAccess)
+        {
+            return Forbid();
         }
 
         // Aktualizacja wspólnych pól
@@ -142,20 +179,27 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa wpis z dziennika (tylko jeśli należy do zalogowanego użytkownika).
+    /// Usuwa wpis z dziennika (tylko jeśli należy do użytkownika lub jego partnera).
     /// DELETE /api/diary/{id}
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var userId = await _userService.GetCurrentUserIdAsync();
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
         
         var entry = await _context.DiaryEntries
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)
         {
             return NotFound();
+        }
+
+        // Sprawdź uprawnienia
+        var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
+        if (!hasAccess)
+        {
+            return Forbid();
         }
 
         _context.DiaryEntries.Remove(entry);
@@ -165,21 +209,28 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera wpis po ID (potrzebne dla CreatedAtAction, tylko jeśli należy do użytkownika).
+    /// Pobiera wpis po ID (potrzebne dla CreatedAtAction, tylko jeśli należy do użytkownika lub jego partnera).
     /// GET /api/diary/{id}
     /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<DiaryEntry>> GetById(int id)
     {
-        var userId = await _userService.GetCurrentUserIdAsync();
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
         
         var entry = await _context.DiaryEntries
             .Include(e => e.Product)
-            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)
         {
             return NotFound();
+        }
+
+        // Sprawdź uprawnienia
+        var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
+        if (!hasAccess)
+        {
+            return Forbid();
         }
 
         return Ok(entry);

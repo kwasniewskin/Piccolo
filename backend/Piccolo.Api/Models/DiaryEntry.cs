@@ -30,6 +30,12 @@ public class DiaryEntry
     /// </summary>
     public int UserId { get; set; }
     
+    /// <summary>
+    /// ID użytkownika, który fizycznie utworzył wpis.
+    /// W większości przypadków równy UserId, ale przy dzieleniu dziennika z partnerem może być inny.
+    /// </summary>
+    public int CreatedByUserId { get; set; }
+    
     // Pola dla szybkich wpisów (Quick Add) - wypełnione gdy ProductId == null
     public string? CustomName { get; set; }
     public float? CustomCalories { get; set; }
