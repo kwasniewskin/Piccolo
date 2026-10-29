@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useReducer, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { GOALS, getMeals, sumMacros, toDateKey, toEntryView } from '@/lib/nutrition'
 import type { DiaryEntry, DiaryEntryView, Macros, MealType, Product } from '@/lib/types'
 import { useLanguage } from '@/lib/language-context'
@@ -94,6 +95,7 @@ function buildInitialState(): AppState {
 export function CalorieTracker() {
   const today = toDateKey(new Date())
   const { language } = useLanguage()
+  const searchParams = useSearchParams()
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState)
   const [activeDate, setActiveDate] = useState(today)
   const [openMeal, setOpenMeal] = useState<MealType | null>(null)
@@ -106,6 +108,25 @@ export function CalorieTracker() {
     fat: GOALS.fat,
     carbs: GOALS.carbs,
   })
+
+  // Obsługa parametrów URL po przekierowaniu z formularza produktu
+  useEffect(() => {
+    const mealParam = searchParams?.get('meal') as MealType | null
+    const dateParam = searchParams?.get('date')
+    
+    // Jeśli są parametry meal i date, automatycznie otwórz panel dodawania
+    if (mealParam && dateParam) {
+      // Sprawdź czy meal jest poprawnym MealType
+      const validMeals: MealType[] = ['breakfast', 'second-breakfast', 'lunch', 'snack', 'dinner']
+      if (validMeals.includes(mealParam)) {
+        setOpenMeal(mealParam)
+      }
+      
+      // Ustaw aktywną datę
+      setActiveDate(dateParam)
+    }
+    // Nie czyścimy URL tutaj - zrobi to add-food-sheet po załadowaniu produktu
+  }, [searchParams])
   
   const meals = getMeals(language)
 
