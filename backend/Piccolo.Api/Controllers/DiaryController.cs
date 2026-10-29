@@ -58,6 +58,16 @@ public class DiaryController : ControllerBase
             return BadRequest("Wpis musi zawierać albo ProductId, albo dane produktu (CustomName, CustomCalories, etc.)");
         }
         
+        // Walidacja: jeśli ProductId jest podane, produkt musi istnieć
+        if (dto.ProductId.HasValue)
+        {
+            var productExists = await _context.Products.AnyAsync(p => p.Id == dto.ProductId.Value);
+            if (!productExists)
+            {
+                return NotFound($"Produkt o ID {dto.ProductId.Value} nie został znaleziony.");
+            }
+        }
+        
         var entry = new DiaryEntry
         {
             Date = dto.Date,
@@ -85,6 +95,50 @@ public class DiaryController : ControllerBase
         }
 
         return CreatedAtAction(nameof(GetById), new { id = entry.Id }, entry);
+    }
+
+    /// <summary>
+    /// Aktualizuje wpis w dzienniku (tylko jeśli należy do zalogowanego użytkownika).
+    /// Pozwala na zmianę gramatury dla wpisów standardowych lub wartości makro dla wpisów customowych.
+    /// PUT /api/diary/{id}
+    /// </summary>
+    [HttpPut("{id}")]
+    public async Task<ActionResult<DiaryEntry>> Update(int id, [FromBody] UpdateDiaryEntryDto dto)
+    {
+        var userId = await _userService.GetCurrentUserIdAsync();
+        
+        var entry = await _context.DiaryEntries
+            .Include(e => e.Product)
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+
+        if (entry == null)
+        {
+            return NotFound();
+        }
+
+        // Aktualizacja wspólnych pól
+        entry.Date = dto.Date;
+        entry.MealType = dto.MealType;
+
+        // Aktualizacja dla wpisu z produktem
+        if (entry.ProductId.HasValue && dto.AmountInGrams.HasValue)
+        {
+            entry.AmountInGrams = dto.AmountInGrams;
+        }
+        
+        // Aktualizacja dla wpisu customowego
+        if (entry.ProductId == null)
+        {
+            entry.CustomName = dto.CustomName ?? entry.CustomName;
+            entry.CustomCalories = dto.CustomCalories ?? entry.CustomCalories;
+            entry.CustomProtein = dto.CustomProtein ?? entry.CustomProtein;
+            entry.CustomFat = dto.CustomFat ?? entry.CustomFat;
+            entry.CustomCarbs = dto.CustomCarbs ?? entry.CustomCarbs;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(entry);
     }
 
     /// <summary>
