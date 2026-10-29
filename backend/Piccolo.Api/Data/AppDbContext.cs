@@ -18,6 +18,10 @@ public class AppDbContext : DbContext
     
     public DbSet<DiaryEntry> DiaryEntries => Set<DiaryEntry>();
     
+    public DbSet<PairingCode> PairingCodes => Set<PairingCode>();
+    
+    public DbSet<UserConnection> UserConnections => Set<UserConnection>();
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -27,6 +31,37 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(u => u.ClerkUserId).IsUnique();
             entity.HasIndex(u => u.Email);
+        });
+        
+        // Konfiguracja PairingCode
+        modelBuilder.Entity<PairingCode>(entity =>
+        {
+            entity.HasIndex(p => p.Code).IsUnique();
+            entity.HasIndex(p => p.CreatedByUserId);
+            entity.HasIndex(p => new { p.Code, p.IsUsed, p.ExpiresAt });
+            
+            entity.HasOne(p => p.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(p => p.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        // Konfiguracja UserConnection
+        modelBuilder.Entity<UserConnection>(entity =>
+        {
+            entity.HasIndex(uc => new { uc.User1Id, uc.User2Id }).IsUnique();
+            entity.HasIndex(uc => uc.Status);
+            
+            // Relacje User1 i User2
+            entity.HasOne(uc => uc.User1)
+                .WithMany()
+                .HasForeignKey(uc => uc.User1Id)
+                .OnDelete(DeleteBehavior.Restrict); // Zapobiegamy kaskadowemu usunięciu
+            
+            entity.HasOne(uc => uc.User2)
+                .WithMany()
+                .HasForeignKey(uc => uc.User2Id)
+                .OnDelete(DeleteBehavior.Restrict);
         });
         
         // Konfiguracja relacji Product -> DiaryEntry (1:N)
@@ -48,6 +83,7 @@ public class AppDbContext : DbContext
             entity.HasIndex(d => d.Date);
             entity.HasIndex(d => d.ProductId);
             entity.HasIndex(d => d.UserId);
+            entity.HasIndex(d => d.CreatedByUserId);
             entity.HasIndex(d => new { d.UserId, d.Date }); // Composite index dla najczęstszego query
         });
     }

@@ -23,8 +23,11 @@ namespace Piccolo.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<double>("AmountInGrams")
+                    b.Property<double?>("AmountInGrams")
                         .HasColumnType("REAL");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<float?>("CustomCalories")
                         .HasColumnType("REAL");
@@ -55,6 +58,8 @@ namespace Piccolo.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedByUserId");
+
                     b.HasIndex("Date");
 
                     b.HasIndex("ProductId");
@@ -64,6 +69,46 @@ namespace Piccolo.Api.Migrations
                     b.HasIndex("UserId", "Date");
 
                     b.ToTable("DiaryEntries");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.PairingCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("UsedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Code", "IsUsed", "ExpiresAt");
+
+                    b.ToTable("PairingCodes");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
@@ -163,6 +208,45 @@ namespace Piccolo.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Piccolo.Api.Models.UserConnection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ConnectedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DisconnectedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("User1Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("User2Id")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("User2Id");
+
+                    b.HasIndex("User1Id", "User2Id")
+                        .IsUnique();
+
+                    b.ToTable("UserConnections");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>
                 {
                     b.HasOne("Piccolo.Api.Models.Product", "Product")
@@ -179,6 +263,36 @@ namespace Piccolo.Api.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.PairingCode", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.UserConnection", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.User", "User1")
+                        .WithMany()
+                        .HasForeignKey("User1Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Piccolo.Api.Models.User", "User2")
+                        .WithMany()
+                        .HasForeignKey("User2Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User1");
+
+                    b.Navigation("User2");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>

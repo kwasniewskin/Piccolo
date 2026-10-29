@@ -15,6 +15,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Rejestracja serwisów
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<PartnerService>();
 
 // Rejestracja HttpClient dla OpenFoodFactsService
 builder.Services.AddHttpClient<OpenFoodFactsService>();
