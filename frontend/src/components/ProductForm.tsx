@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Camera } from 'lucide-react';
+import { toast } from 'sonner';
 import { API_BASE } from '@/lib/api';
 
 interface ProductFormProps {
@@ -47,6 +48,7 @@ function ProductFormContent({
   onSave,
   onCancel,
 }: ProductFormProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const barcodeFromUrl = searchParams?.get('barcode') || '';
   const finalBarcode = propsBarcode || barcodeFromUrl;
@@ -216,13 +218,13 @@ function ProductFormContent({
         console.log('Analiza zakończona pomyślnie:', productData);
       } catch (error) {
         console.error('Błąd analizy obrazu:', error);
-        alert('Nie udało się przeanalizować zdjęć. Spróbuj ponownie.');
+        toast.error('Nie udało się przeanalizować zdjęć. Spróbuj ponownie.');
       } finally {
         setIsAnalyzing(false);
       }
     } catch (error) {
       console.error('Błąd przetwarzania pliku:', error);
-      alert('Wystąpił błąd podczas przetwarzania pliku.');
+      toast.error('Wystąpił błąd podczas przetwarzania pliku.');
       setIsAnalyzing(false);
     }
   };
@@ -232,7 +234,7 @@ function ProductFormContent({
     
     // Walidacja podstawowa
     if (!formData.name || formData.name.trim() === '') {
-      alert('Proszę podać nazwę produktu');
+      toast.error('Proszę podać nazwę produktu');
       return;
     }
 
@@ -297,7 +299,7 @@ function ProductFormContent({
       onSave?.(formData);
 
       // Wyświetl komunikat sukcesu
-      alert(existingProductId ? 'Zaktualizowano produkt!' : 'Dodano produkt!');
+      toast.success(existingProductId ? 'Zaktualizowano produkt!' : 'Dodano produkt!');
 
       // Zresetuj formularz do stanu początkowego
       setFormData({
@@ -320,9 +322,24 @@ function ProductFormContent({
       // Wyczyść podgląd obrazu i istniejący produkt
       setImagePreview(null);
       setExistingProductId(null);
+
+      // Pobierz parametry przekierowania z URL
+      const returnUrl = searchParams?.get('returnUrl');
+      const meal = searchParams?.get('meal');
+      const date = searchParams?.get('date');
+
+      // Przekieruj z powrotem do strony głównej z ID nowo dodanego produktu
+      if (meal && date) {
+        // Użyj returnUrl jeśli jest podany i jest to root, w przeciwnym razie użyj '/'
+        const targetUrl = returnUrl === '/' ? returnUrl : '/';
+        router.push(`${targetUrl}?meal=${meal}&date=${date}&preselectProductId=${savedProduct.id}`);
+      } else if (onCancel) {
+        // Jeśli nie ma meal/date, użyj callbacka onCancel
+        onCancel();
+      }
     } catch (error) {
       console.error('Błąd podczas zapisywania:', error);
-      alert('Wystąpił błąd podczas zapisywania produktu. Spróbuj ponownie.');
+      toast.error('Wystąpił błąd podczas zapisywania produktu. Spróbuj ponownie.');
     } finally {
       setIsSaving(false);
     }

@@ -419,6 +419,49 @@ export async function importProduct(product: Product): Promise<Product | null> {
 }
 
 /**
+ * Pobiera pojedynczy produkt po ID.
+ * 
+ * @param id - ID produktu
+ * @returns produkt lub null jeśli nie znaleziono
+ */
+export async function getProduct(id: number): Promise<Product | null> {
+  try {
+    // Sprawdź cache
+    if (productCache.has(id)) {
+      console.log('[API] Product found in cache:', id)
+      return productCache.get(id)!
+    }
+
+    console.log('[API] Fetching product by ID:', id)
+    
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${API_BASE}/products/${id}`, { headers })
+    
+    if (response.status === 404) {
+      console.log('[API] Product not found for ID:', id)
+      return null
+    }
+    
+    if (!response.ok) {
+      console.error(`[API] Product fetch failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    const data: ApiProduct = await response.json()
+    const product = toFrontendProduct(data)
+    
+    // Dodaj do cache
+    productCache.set(product.id, product)
+    
+    console.log('[API] Product fetched:', product.name)
+    return product
+  } catch (error) {
+    console.error('[API] Network error during product fetch:', error)
+    return null
+  }
+}
+
+/**
  * Wyszukuje produkt po kodzie kreskowym - najpierw lokalnie, potem w Open Food Facts.
  * 
  * @param barcode - kod kreskowy produktu (EAN-13, UPC-A itp.)

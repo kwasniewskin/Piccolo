@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ChevronRight, ScanLine, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calcMacroPercentages, MEALS, macrosFor } from '@/lib/nutrition'
@@ -33,6 +33,7 @@ type Props = {
 
 export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<Product | null>(null)
@@ -50,6 +51,31 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }:
   const [quickAddProtein, setQuickAddProtein] = useState('')
   const [quickAddFat, setQuickAddFat] = useState('')
   const [quickAddCarbs, setQuickAddCarbs] = useState('')
+
+  // Obsługa preselectProductId - automatyczne wybieranie produktu po dodaniu
+  useEffect(() => {
+    const preselectProductId = searchParams?.get('preselectProductId')
+    if (preselectProductId && meal) {
+      // Pobierz produkt z API
+      api.getProduct(Number(preselectProductId))
+        .then((product) => {
+          if (product) {
+            setPicked(product)
+            // Ustaw domyślną porcję jeśli istnieje
+            if (product.defaultServing) {
+              setAmount(String(product.defaultServing))
+            }
+          }
+          // Wyczyść WSZYSTKIE parametry z URL (meal, date, preselectProductId)
+          router.replace(window.location.pathname)
+        })
+        .catch((error) => {
+          console.error('Błąd podczas ładowania preselected produktu:', error)
+          // W przypadku błędu również wyczyść URL
+          router.replace(window.location.pathname)
+        })
+    }
+  }, [searchParams, meal, router])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -150,8 +176,8 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }:
 
   function handleAddManually() {
     if (scannedBarcode) {
-      // Przekieruj na formularz z kodem kreskowym
-      router.push(`/add-product?barcode=${scannedBarcode}`)
+      // Przekieruj na formularz z kodem kreskowym i parametrami powrotu
+      router.push(`/add-product?barcode=${scannedBarcode}&returnUrl=/&meal=${meal}&date=${date}`)
     }
   }
 
@@ -455,7 +481,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }:
               <div className="sticky bottom-0 bg-background border-t p-4 flex gap-2 z-10">
                 <button
                   type="button"
-                  onClick={() => router.push(`/add-product?mealType=${meal}&date=${date}`)}
+                  onClick={() => router.push(`/add-product?returnUrl=/&meal=${meal}&date=${date}`)}
                   className="flex-1 rounded-full border border-border bg-background py-3 text-sm font-semibold transition-transform active:scale-[0.98] hover:bg-secondary"
                 >
                   Nowy produkt

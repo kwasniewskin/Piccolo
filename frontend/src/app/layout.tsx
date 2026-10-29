@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import type { Metadata, Viewport } from 'next'
 import { Bricolage_Grotesque, Manrope } from 'next/font/google'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 const manrope = Manrope({ subsets: ['latin', 'latin-ext'], variable: '--font-manrope' })
@@ -47,6 +48,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
           <ClerkProvider>
             {children}
+            <Toaster position="top-center" theme="dark" richColors />
           </ClerkProvider>
       </body>
     </html>
