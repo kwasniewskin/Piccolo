@@ -32,7 +32,7 @@ public class PartnerController : ControllerBase
         return Ok(new GeneratePairingCodeResponse
         {
             Code = pairingCode.Code,
-            ExpiresAt = pairingCode.ExpiresAt
+            ExpiresAt = AsUtc(pairingCode.ExpiresAt)
         });
     }
 
@@ -53,15 +53,7 @@ public class PartnerController : ControllerBase
 
         var partner = connection.User1Id == userId ? connection.User2 : connection.User1;
 
-        return Ok(new ConnectionDto
-        {
-            Id = connection.Id,
-            PartnerId = partner.Id,
-            PartnerName = partner.Name,
-            PartnerEmail = partner.Email,
-            Status = connection.Status,
-            ConnectedAt = connection.ConnectedAt ?? connection.CreatedAt
-        });
+        return Ok(ToConnectionDto(connection, partner));
     }
 
     /// <summary>
@@ -81,15 +73,7 @@ public class PartnerController : ControllerBase
 
         var partner = connection.User1Id == userId ? connection.User2 : connection.User1;
 
-        return Ok(new ConnectionDto
-        {
-            Id = connection.Id,
-            PartnerId = partner.Id,
-            PartnerName = partner.Name,
-            PartnerEmail = partner.Email,
-            Status = connection.Status,
-            ConnectedAt = connection.ConnectedAt ?? connection.CreatedAt
-        });
+        return Ok(ToConnectionDto(connection, partner));
     }
 
     /// <summary>
@@ -132,5 +116,24 @@ public class PartnerController : ControllerBase
 
         return NoContent();
     }
+
+    private static ConnectionDto ToConnectionDto(UserConnection connection, User partner) => new()
+    {
+        Id = connection.Id,
+        PartnerId = partner.Id,
+        PartnerName = partner.Name,
+        PartnerEmail = partner.Email,
+        Status = connection.Status,
+        ConnectedAt = AsUtc(connection.ConnectedAt ?? connection.CreatedAt)
+    };
+
+    /// <summary>
+    /// SQLite nie przechowuje DateTimeKind, więc daty odczytane z bazy mają Kind=Unspecified
+    /// i serializują się bez "Z". Przeglądarka traktuje je wtedy jako czas lokalny
+    /// (np. UTC+1), przez co świeży kod wyglądał na wygasły. Wszystkie daty zapisujemy
+    /// jako DateTime.UtcNow, więc oznaczenie ich jako UTC jest bezpieczne.
+    /// </summary>
+    private static DateTime AsUtc(DateTime value) =>
+        value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 }
 

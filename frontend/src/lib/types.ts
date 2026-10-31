@@ -47,6 +47,10 @@ export type DiaryEntry = {
   /** Data w formacie `YYYY-MM-DD` (bez godziny – liczy się tylko dzień). */
   date: string
   mealType: MealType
+  /** Właściciel dziennika (wewnętrzne ID z backendu). */
+  userId?: number
+  /** Kto fizycznie dodał wpis – różny od `userId`, gdy dodał go partner. */
+  createdByUserId?: number
   // Pola dla szybkich wpisów (bez produktu w bazie)
   customName?: string
   customCalories?: number

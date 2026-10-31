@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Piccolo.Api.Data;
 using Piccolo.Api.Models;
@@ -10,7 +11,6 @@ namespace Piccolo.Api.Services;
 public class PartnerService
 {
     private readonly AppDbContext _context;
-    private static readonly Random _random = new Random();
 
     public PartnerService(AppDbContext context)
     {
@@ -18,27 +18,31 @@ public class PartnerService
     }
 
     /// <summary>
-    /// Generuje unikalny 6-cyfrowy kod parowania.
+    /// Generuje nowy, unikalny 6-cyfrowy kod parowania.
+    /// Poprzednie nieużyte kody użytkownika są usuwane (unieważniane),
+    /// więc w danym momencie ważny jest tylko ostatnio wygenerowany kod.
     /// </summary>
     public async Task<PairingCode> GeneratePairingCodeAsync(int userId)
     {
-        // Sprawdź, czy użytkownik nie ma już aktywnego kodu
-        var existingCode = await _context.PairingCodes
-            .Where(pc => pc.CreatedByUserId == userId && !pc.IsUsed && pc.ExpiresAt > DateTime.UtcNow)
-            .FirstOrDefaultAsync();
+        // Unieważnij stare, nieużyte kody tego użytkownika (aktywne i wygasłe).
+        // Użyte kody zostają jako historia (UsedAt / UsedByUserId).
+        var staleCodes = await _context.PairingCodes
+            .Where(pc => pc.CreatedByUserId == userId && !pc.IsUsed)
+            .ToListAsync();
 
-        if (existingCode != null)
+        if (staleCodes.Count > 0)
         {
-            return existingCode;
+            _context.PairingCodes.RemoveRange(staleCodes);
         }
 
-        // Generuj kod dopóki nie będzie unikalny
+        // Generuj kod dopóki nie będzie unikalny. Indeks IX_PairingCodes_Code jest
+        // unikalny dla WSZYSTKICH kodów (również użytych), więc sprawdzamy całą tabelę.
         string code;
         bool isUnique;
         do
         {
-            code = _random.Next(100000, 999999).ToString();
-            isUnique = !await _context.PairingCodes.AnyAsync(pc => pc.Code == code && !pc.IsUsed);
+            code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+            isUnique = !await _context.PairingCodes.AnyAsync(pc => pc.Code == code);
         } while (!isUnique);
 
         var pairingCode = new PairingCode
@@ -85,19 +89,46 @@ public class PartnerService
 
         var user1Id = Math.Min(pairingCode.CreatedByUserId, acceptingUserId);
         var user2Id = Math.Max(pairingCode.CreatedByUserId, acceptingUserId);
+        var now = DateTime.UtcNow;
 
-        var connection = new UserConnection
+        // Indeks (User1Id, User2Id) jest unikalny, a rozłączenie to soft delete.
+        // Jeśli ta para była już kiedyś połączona, wznawiamy istniejący rekord
+        // zamiast dodawać nowy (inaczej INSERT złamałby unikalny indeks).
+        var connection = await _context.UserConnections
+            .FirstOrDefaultAsync(uc => uc.User1Id == user1Id && uc.User2Id == user2Id);
+
+        if (connection != null)
         {
-            User1Id = user1Id,
-            User2Id = user2Id,
-            Status = ConnectionStatus.Accepted,
-            CreatedByUserId = pairingCode.CreatedByUserId,
-            CreatedAt = DateTime.UtcNow,
-            ConnectedAt = DateTime.UtcNow
-        };
+            connection.Status = ConnectionStatus.Accepted;
+            connection.CreatedByUserId = pairingCode.CreatedByUserId;
+            connection.ConnectedAt = now;
+            connection.DisconnectedAt = null;
+        }
+        else
+        {
+            connection = new UserConnection
+            {
+                User1Id = user1Id,
+                User2Id = user2Id,
+                Status = ConnectionStatus.Accepted,
+                CreatedByUserId = pairingCode.CreatedByUserId,
+                CreatedAt = now,
+                ConnectedAt = now
+            };
+            _context.UserConnections.Add(connection);
+        }
 
-        _context.UserConnections.Add(connection);
+        // Kody, które akceptujący sam wcześniej wygenerował, są już niepotrzebne.
+        var acceptorCodes = await _context.PairingCodes
+            .Where(pc => pc.CreatedByUserId == acceptingUserId && !pc.IsUsed)
+            .ToListAsync();
+        _context.PairingCodes.RemoveRange(acceptorCodes);
+
         await _context.SaveChangesAsync();
+
+        // Załaduj obu użytkowników (kontroler potrzebuje danych partnera).
+        await _context.Entry(connection).Reference(uc => uc.User1).LoadAsync();
+        await _context.Entry(connection).Reference(uc => uc.User2).LoadAsync();
 
         return (true, null, connection);
     }

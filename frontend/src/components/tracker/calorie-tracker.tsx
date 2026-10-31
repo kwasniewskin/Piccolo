@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation'
 import { GOALS, getMeals, sumMacros, toDateKey, toEntryView } from '@/lib/nutrition'
 import type { DiaryEntry, DiaryEntryView, Macros, MealType, Product } from '@/lib/types'
 import { useLanguage } from '@/lib/language-context'
+import { getTranslation } from '@/lib/i18n'
+import { usePartner } from '@/lib/partner-context'
 import * as api from '@/lib/api'
 import { TopBar } from './top-bar'
 import { DateStrip } from './date-strip'
@@ -36,6 +38,7 @@ type Action =
   | { type: 'set-products'; products: Product[] }
   | { type: 'set-loading'; loading: boolean }
   | { type: 'set-error'; error: string | null }
+  | { type: 'reset-entries' }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -76,6 +79,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'set-error': {
       return { ...state, error: action.error }
     }
+    case 'reset-entries': {
+      return { ...state, entries: {} }
+    }
   }
 }
 
@@ -95,6 +101,7 @@ function buildInitialState(): AppState {
 export function CalorieTracker() {
   const today = toDateKey(new Date())
   const { language } = useLanguage()
+  const { activeUserId, isViewingPartner } = usePartner()
   const searchParams = useSearchParams()
   const [state, dispatch] = useReducer(reducer, undefined, buildInitialState)
   const [activeDate, setActiveDate] = useState(today)
@@ -144,12 +151,17 @@ export function CalorieTracker() {
   const dayTotals = sumMacros(dayViews)
 
   // Załaduj wpisy dla aktywnego dnia przy zmianie daty
+  // Przy przełączeniu dziennika (własny ↔ partnera) wyczyść cache wpisów innej osoby
+  useEffect(() => {
+    dispatch({ type: 'reset-entries' })
+  }, [activeUserId])
+
   useEffect(() => {
     async function loadDayEntries() {
       dispatch({ type: 'set-loading', loading: true })
       dispatch({ type: 'set-error', error: null })
 
-      const entries = await api.getDiaryEntries(activeDate)
+      const entries = await api.getDiaryEntries(activeDate, activeUserId)
       
       if (entries.length === 0 && !navigator.onLine) {
         dispatch({ type: 'set-error', error: 'Brak połączenia z serwerem' })
@@ -170,14 +182,17 @@ export function CalorieTracker() {
     }
 
     loadDayEntries()
-  }, [activeDate])
+  }, [activeDate, activeUserId])
 
   async function handleAdd(meal: MealType, product: Product, amountInGrams: number) {
     // Dodaj produkt do cache jeśli go tam nie ma
     api.cacheProducts([product])
     
-    // Wyślij do API
-    const entry = await api.createDiaryEntry(activeDate, meal, amountInGrams, { productId: product.id })
+    // Wyślij do API (z targetUserId jeśli oglądamy partnera)
+    const entry = await api.createDiaryEntry(activeDate, meal, amountInGrams, { 
+      productId: product.id,
+      targetUserId: activeUserId,
+    })
     
     // Zawsze zamknij modal, niezależnie od wyniku
     setOpenMeal(null)
@@ -188,7 +203,7 @@ export function CalorieTracker() {
       dispatch({ type: 'set-products', products: api.getCachedProducts() })
 
       // Odśwież listę wpisów dla dnia z serwera (źródło prawdy).
-      const fresh = await api.getDiaryEntries(activeDate)
+      const fresh = await api.getDiaryEntries(activeDate, activeUserId)
       dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
     } else {
       // Błąd zapisu – pokaż użytkownikowi komunikat
@@ -211,6 +226,15 @@ export function CalorieTracker() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-background">
       <TopBar onOpenSettings={() => setSettingsOpen(true)} />
+
+      {isViewingPartner && (
+        <div
+          role="status"
+          className="mx-4 mt-2 rounded-2xl bg-primary/10 px-4 py-2 text-xs font-medium text-primary"
+        >
+          {getTranslation(language, 'viewing-partner-diary')}
+        </div>
+      )}
 
       {/* Pasek daty */}
       <DateStrip
@@ -261,9 +285,10 @@ export function CalorieTracker() {
         date={activeDate}
         onClose={() => setOpenMeal(null)}
         onAdd={handleAdd}
+        targetUserId={activeUserId}
         onQuickAddComplete={async () => {
           // Odśwież dane z serwera po dodaniu szybkiego wpisu
-          const fresh = await api.getDiaryEntries(activeDate)
+          const fresh = await api.getDiaryEntries(activeDate, activeUserId)
           dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
         }}
       />
