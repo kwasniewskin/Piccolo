@@ -29,9 +29,11 @@ type Props = {
   onAdd: (meal: MealType, product: Product, amountInGrams: number) => void
   /** Wywoływane po dodaniu szybkiego wpisu – do odświeżenia listy */
   onQuickAddComplete?: () => void
+  /** Wewnętrzne ID partnera, gdy dodajemy do jego dziennika; undefined = własny dziennik */
+  targetUserId?: number
 }
 
-export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }: Props) {
+export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, targetUserId }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -214,6 +216,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete }:
         customProtein: protein,
         customFat: fat,
         customCarbs: carbs,
+        targetUserId,
       })
 
       if (!entry) {

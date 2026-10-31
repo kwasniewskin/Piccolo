@@ -7,6 +7,7 @@ import { sumMacros } from '@/lib/nutrition'
 import type { DiaryEntryView, Macros, MealType } from '@/lib/types'
 import { useLanguage } from '@/lib/language-context'
 import { getTranslation } from '@/lib/i18n'
+import { usePartner } from '@/lib/partner-context'
 
 type Meal = { id: MealType; label: string }
 
@@ -19,7 +20,21 @@ type Props = {
 
 export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
   const { language } = useLanguage()
+  const { isViewingPartner, partnerInfo } = usePartner()
   const t = (key: keyof typeof import('@/lib/i18n').TRANSLATIONS.en) => getTranslation(language, key)
+
+  /**
+   * Etykieta "Dodane przez ..." dla wpisów, które dodała inna osoba niż właściciel dziennika.
+   * We własnym dzienniku taki wpis dodał partner; w dzienniku partnera – my.
+   */
+  function addedByLabel(entry: DiaryEntryView): string | null {
+    if (entry.createdByUserId == null || entry.userId == null) return null
+    if (entry.createdByUserId === entry.userId) return null
+    const who = isViewingPartner
+      ? t('you')
+      : partnerInfo?.name || partnerInfo?.email || t('partner')
+    return `${t('added-by')} ${who}`
+  }
   
   const totals = sumMacros(entries)
   const [expanded, setExpanded] = useState(entries.length > 0)
@@ -83,7 +98,9 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
             <p className="px-4 pb-4 text-sm text-muted-foreground">{t('no-foods-logged')}</p>
           ) : (
             <ul className="flex flex-col divide-y divide-border px-4 pb-4">
-              {entries.map((entry) => (
+              {entries.map((entry) => {
+                const addedBy = addedByLabel(entry)
+                return (
                 <li key={entry.id} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
@@ -98,6 +115,11 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
                       </p>
                       <MacroLine macros={entry} language={language} />
                     </div>
+                    {addedBy && (
+                      <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        {addedBy}
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -108,7 +130,8 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
                     <Trash2 className="size-4" />
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
         </div>

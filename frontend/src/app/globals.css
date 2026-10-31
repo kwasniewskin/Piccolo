@@ -50,6 +50,18 @@
   --carbs: oklch(0.74 0.15 300);
 }
 
+/*
+ * Color shift: przy oglądaniu dziennika partnera akcent zmienia się z zielonego na niebieski.
+ * Atrybut ustawia PartnerProvider na <html>. Wszystkie `bg-primary`, `text-primary`, `ring`
+ * i `text-kcal` korzystają z tych zmiennych, więc zmiana obejmuje całe UI.
+ */
+[data-viewing-partner='true'] {
+  --primary: oklch(0.72 0.17 250);
+  --primary-foreground: oklch(0.14 0.02 250);
+  --ring: oklch(0.72 0.17 250);
+  --kcal: oklch(0.72 0.17 250);
+}
+
 /* Ukrywa overlay z błędami Next.js w trybie development */
 #webpack-dev-server-client-overlay,
 #webpack-dev-server-client-overlay-div,

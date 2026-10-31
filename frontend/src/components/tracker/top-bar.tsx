@@ -1,11 +1,19 @@
 'use client'
 
-import { Settings } from 'lucide-react'
+import { Settings, ArrowLeftRight } from 'lucide-react'
 import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs'
+import { usePartner } from '@/lib/partner-context'
+import { useLanguage } from '@/lib/language-context'
+import { getTranslation } from '@/lib/i18n'
 
-/** Dyskretny pasek na górze: nazwa aplikacji + auth + przycisk ustawień. */
+/** Dyskretny pasek na górze: nazwa aplikacji + auth + partner switcher + przycisk ustawień. */
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { isSignedIn, isLoaded } = useUser()
+  const { isViewingPartner, connectionStatus, switchToPartner, switchToSelf } = usePartner()
+  const { language } = useLanguage()
+  const t = (key: keyof typeof import('@/lib/i18n').TRANSLATIONS.en) => getTranslation(language, key)
+
+  const showPartnerSwitch = connectionStatus === 'connected'
 
   return (
     <header
@@ -15,6 +23,18 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
       <p className="font-heading text-sm font-bold tracking-wide text-muted-foreground">Piccolo</p>
       
       <div className="flex items-center gap-2">
+        {showPartnerSwitch && (
+          <button
+            type="button"
+            onClick={isViewingPartner ? switchToSelf : switchToPartner}
+            aria-pressed={isViewingPartner}
+            className="flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary transition-colors"
+          >
+            <ArrowLeftRight className="size-3" />
+            <span>{isViewingPartner ? t('partner-diary') : t('my-diary')}</span>
+          </button>
+        )}
+
         {isLoaded && (
           <>
             {!isSignedIn ? (

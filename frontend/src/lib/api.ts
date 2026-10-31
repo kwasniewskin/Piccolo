@@ -54,6 +54,8 @@ type ApiDiaryEntry = {
   productId?: number | null
   amountInGrams: number
   product?: ApiProduct | null
+  userId?: number
+  createdByUserId?: number
   customName?: string
   customCalories?: number
   customProtein?: number
@@ -70,6 +72,8 @@ type CreateDiaryEntryDto = {
   mealType: MealType
   productId?: number // Opcjonalny - dla wpisów z bazy
   amountInGrams: number | null // Opcjonalny - null dla szybkich wpisów
+  /** Wewnętrzne ID partnera – backend przyjmuje je w body (nie w query). */
+  targetUserId?: number
   // Pola dla szybkich wpisów (Quick Add)
   customName?: string
   customCalories?: number
@@ -136,6 +140,8 @@ function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
     mealType: api.mealType,
     productId: api.productId ?? undefined,
     amountInGrams: api.amountInGrams,
+    userId: api.userId,
+    createdByUserId: api.createdByUserId,
     customName: api.customName,
     customCalories: api.customCalories,
     customProtein: api.customProtein,
@@ -186,16 +192,39 @@ export async function searchProducts(query: string): Promise<Product[]> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Zdarzenie wysyłane, gdy backend odmówi dostępu (403) do dziennika partnera.
+ * PartnerProvider nasłuchuje go i wraca do własnego dziennika.
+ */
+export const PARTNER_ACCESS_LOST_EVENT = 'piccolo:partner-access-lost'
+
+function notifyPartnerAccessLost() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(PARTNER_ACCESS_LOST_EVENT))
+  }
+}
+
+/**
  * Pobiera wszystkie wpisy z dziennika dla danej daty.
  * 
  * @param date - data w formacie YYYY-MM-DD (np. "2026-10-05")
+ * @param targetUserId - wewnętrzne ID partnera (pomiń dla własnego dziennika)
  * @returns tablica wpisów lub pusta tablica w przypadku błędu
  */
-export async function getDiaryEntries(date: string): Promise<DiaryEntry[]> {
+export async function getDiaryEntries(date: string, targetUserId?: number): Promise<DiaryEntry[]> {
   try {
-    const url = `${API_BASE}/diary?date=${encodeURIComponent(date)}`
+    const params = new URLSearchParams({ date })
+    if (targetUserId != null) {
+      params.set('targetUserId', String(targetUserId))
+    }
+
     const headers = await getAuthHeaders()
-    const response = await fetch(url, { headers })
+    const response = await fetch(`${API_BASE}/diary?${params}`, { headers })
+
+    if (response.status === 403 && targetUserId != null) {
+      console.warn('[API] Access to partner diary denied')
+      notifyPartnerAccessLost()
+      return []
+    }
 
     if (!response.ok) {
       console.error(`[API] Diary fetch failed: ${response.status} ${response.statusText}`)
@@ -215,13 +244,22 @@ export async function getDiaryEntries(date: string): Promise<DiaryEntry[]> {
  * Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy.
  * 
  * @param amountInGrams - ilość w gramach (opcjonalne dla szybkich wpisów - null)
+ * @param options.targetUserId - wewnętrzne ID partnera; backend oczekuje go w body
  * @returns utworzony wpis lub null w przypadku błędu
  */
 export async function createDiaryEntry(
   date: string,
   mealType: MealType,
   amountInGrams: number | null,
-  options: { productId?: number; customName?: string; customCalories?: number; customProtein?: number; customFat?: number; customCarbs?: number } = {}
+  options: {
+    productId?: number
+    customName?: string
+    customCalories?: number
+    customProtein?: number
+    customFat?: number
+    customCarbs?: number
+    targetUserId?: number
+  } = {}
 ): Promise<DiaryEntry | null> {
   try {
     const dto: CreateDiaryEntryDto = {
@@ -241,6 +279,11 @@ export async function createDiaryEntry(
 
     console.log('[API] Response status:', response.status)
 
+    if (response.status === 403 && options.targetUserId != null) {
+      notifyPartnerAccessLost()
+      return null
+    }
+
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`[API] Diary create failed: ${response.status} ${response.statusText}`)
@@ -259,6 +302,8 @@ export async function createDiaryEntry(
 
 /**
  * Usuwa wpis z dziennika.
+ * Backend sam sprawdza, czy wpis należy do użytkownika lub jego partnera,
+ * więc nie trzeba przekazywać targetUserId.
  * 
  * @returns true jeśli usunięto, false w przypadku błędu
  */
@@ -268,6 +313,11 @@ export async function deleteDiaryEntry(id: number): Promise<boolean> {
       method: 'DELETE',
       headers: await getAuthHeaders(),
     })
+
+    if (response.status === 403) {
+      notifyPartnerAccessLost()
+      return false
+    }
 
     if (!response.ok) {
       console.error(`[API] Diary delete failed: ${response.status} ${response.statusText}`)
@@ -497,6 +547,140 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
   } catch (error) {
     console.error('[API] Network error during barcode lookup:', error)
     return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Partner API
+// ---------------------------------------------------------------------------
+
+/**
+ * Generuje kod parowania dla bieżącego użytkownika.
+ * 
+ * @returns obiekt z kodem i datą wygaśnięcia lub null jeśli błąd
+ */
+export async function generatePairingCode(): Promise<{ code: string; expiresAt: string } | null> {
+  try {
+    console.log('[API] Generating pairing code')
+    
+    const response = await fetch(`${API_BASE}/partner/generate-code`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Pairing code generation failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      return null
+    }
+    
+    const data = await response.json()
+    return { code: data.code, expiresAt: data.expiresAt }
+  } catch (error) {
+    console.error('[API] Network error during pairing code generation:', error)
+    return null
+  }
+}
+
+/**
+ * Akceptuje kod parowania od partnera.
+ * 
+ * @param code - 6-cyfrowy kod parowania
+ * @returns `{ success: true }` lub `{ success: false, error }` z komunikatem backendu (jeśli jest)
+ */
+export async function acceptPairingCode(
+  code: string,
+): Promise<{ success: true } | { success: false; error: string | null }> {
+  try {
+    console.log('[API] Accepting pairing code')
+    
+    const response = await fetch(`${API_BASE}/partner/accept-code`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ code }),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Pairing code acceptance failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      let message: string | null = null
+      try {
+        const parsed = JSON.parse(errorText) as { error?: unknown }
+        if (typeof parsed.error === 'string') message = parsed.error
+      } catch {
+        // Odpowiedź nie jest JSON-em – zostaje ogólny komunikat
+      }
+      return { success: false, error: message }
+    }
+    
+    console.log('[API] Pairing code accepted successfully')
+    return { success: true }
+  } catch (error) {
+    console.error('[API] Network error during pairing code acceptance:', error)
+    return { success: false, error: null }
+  }
+}
+
+/**
+ * Pobiera informacje o aktualnym połączeniu z partnerem.
+ * 
+ * @returns informacje o partnerze lub null jeśli brak połączenia (404)
+ * @throws Error przy błędzie sieci/serwera – żeby chwilowa awaria nie wyglądała jak rozłączenie
+ */
+export async function getPartnerConnection(): Promise<{
+  partnerId: number
+  partnerName: string | null
+  partnerEmail: string | null
+  connectedAt: string
+} | null> {
+  const headers = await getAuthHeaders()
+  const response = await fetch(`${API_BASE}/partner/connection`, { headers })
+  
+  if (response.status === 404) {
+    return null
+  }
+  
+  if (!response.ok) {
+    throw new Error(`Partner connection fetch failed: ${response.status} ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return {
+    partnerId: data.partnerId,
+    partnerName: data.partnerName ?? null,
+    partnerEmail: data.partnerEmail ?? null,
+    connectedAt: data.connectedAt,
+  }
+}
+
+/**
+ * Rozłącza połączenie z partnerem.
+ * 
+ * @returns true jeśli sukces, false jeśli błąd
+ */
+export async function disconnectPartner(): Promise<boolean> {
+  try {
+    console.log('[API] Disconnecting from partner')
+    
+    const response = await fetch(`${API_BASE}/partner/disconnect`, {
+      method: 'DELETE',
+      headers: await getAuthHeaders(),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Partner disconnect failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      return false
+    }
+    
+    console.log('[API] Partner disconnected successfully')
+    return true
+  } catch (error) {
+    console.error('[API] Network error during partner disconnect:', error)
+    return false
   }
 }
 

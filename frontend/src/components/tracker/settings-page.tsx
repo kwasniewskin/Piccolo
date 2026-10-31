@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronRight, Target, User, TrendingUp, Palette, Bell, Download, Info } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Target, User, TrendingUp, Palette, Bell, Download, Info, Users2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KCAL_PER_GRAM, kcalFromMacros } from '@/lib/nutrition'
 import type { Macros } from '@/lib/types'
 import { useLanguage } from '@/lib/language-context'
 import { getTranslation, type Language } from '@/lib/i18n'
+import { PartnerSettings } from './partner-settings'
 
 type Props = {
   open: boolean
@@ -15,7 +16,7 @@ type Props = {
   onSave: (goals: Macros) => void
 }
 
-type View = 'list' | 'calories-form' | 'appearance-form'
+type View = 'list' | 'calories-form' | 'appearance-form' | 'partner-form'
 
 type FieldKey = keyof Macros
 type FormValues = Record<FieldKey, string>
@@ -51,6 +52,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
 
   const SETTINGS_ITEMS = [
     { id: 'calories', label: t('calories-macros'), icon: Target, view: 'calories-form' as const },
+    { id: 'partner', label: t('partner-sync'), icon: Users2, view: 'partner-form' as const },
     { id: 'account', label: t('account'), icon: User, view: null },
     { id: 'progress', label: t('progress-stats'), icon: TrendingUp, view: null },
     { id: 'appearance', label: t('appearance'), icon: Palette, view: 'appearance-form' as const },
@@ -74,7 +76,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
     if (!open) return
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (view === 'calories-form' || view === 'appearance-form') {
+        if (view === 'calories-form' || view === 'appearance-form' || view === 'partner-form') {
           setView('list')
         } else {
           onClose()
@@ -114,7 +116,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
   }
 
   function handleBack() {
-    if (view === 'calories-form') {
+    if (view === 'calories-form' || view === 'appearance-form' || view === 'partner-form') {
       setView('list')
     } else {
       onClose()
@@ -151,7 +153,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
             <ArrowLeft className="size-5" />
           </button>
           <h1 className="font-heading text-lg font-bold">
-            {view === 'list' ? 'Settings' : 'Daily Goals'}
+            {view === 'list' ? t('settings') : view === 'calories-form' ? t('calories-macros') : view === 'appearance-form' ? t('appearance') : t('partner-sync')}
           </h1>
         </header>
 
@@ -227,6 +229,8 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
               </div>
             </div>
           )}
+
+          {view === 'partner-form' && <PartnerSettings />}
 
           {view === 'calories-form' && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
