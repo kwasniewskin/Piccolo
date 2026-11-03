@@ -13,7 +13,7 @@ type Props = {
   open: boolean
   goals: Macros
   onClose: () => void
-  onSave: (goals: Macros) => void
+  onSave: (goals: Macros) => void | Promise<void>
 }
 
 type View = 'list' | 'calories-form' | 'appearance-form' | 'partner-form'

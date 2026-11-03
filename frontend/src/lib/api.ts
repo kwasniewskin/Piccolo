@@ -7,7 +7,7 @@
  * - Puste wyniki wyszukiwania (brak dopasowań) to poprawny przypadek, nie błąd
  */
 
-import type { DiaryEntry, MealType, Product } from './types'
+import type { DiaryEntry, MealType, Product, Macros } from './types'
 import { auth } from '@clerk/nextjs/server'
 
 // API_BASE używa zmiennej środowiskowej lub domyślnie proxy Next.js.
@@ -327,6 +327,102 @@ export async function deleteDiaryEntry(id: number): Promise<boolean> {
     return true
   } catch (error) {
     console.error('[API] Network error during diary delete:', error)
+    return false
+  }
+}
+
+// ---------------------------------------------------------------------------
+// API: Cele kaloryczne i makro
+// ---------------------------------------------------------------------------
+
+/** Odpowiedź z GET /api/goals */
+type ApiGoals = {
+  kcal: number
+  protein: number
+  fat: number
+  carbs: number
+}
+
+/**
+ * Pobiera cele kaloryczne i makro dla danego użytkownika.
+ * 
+ * @param targetUserId - wewnętrzne ID użytkownika (pomiń dla własnych celów)
+ * @returns cele lub null w przypadku błędu
+ */
+export async function getGoals(targetUserId?: number): Promise<Macros | null> {
+  try {
+    const params = new URLSearchParams()
+    if (targetUserId != null) {
+      params.set('targetUserId', String(targetUserId))
+    }
+
+    const url = params.toString() ? `${API_BASE}/goals?${params}` : `${API_BASE}/goals`
+    const headers = await getAuthHeaders()
+    const response = await fetch(url, { headers })
+
+    if (response.status === 403 && targetUserId != null) {
+      console.warn('[API] Access to partner goals denied')
+      notifyPartnerAccessLost()
+      return null
+    }
+
+    if (!response.ok) {
+      console.error(`[API] Goals fetch failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    const data: ApiGoals = await response.json()
+    
+    // Jeśli backend zwraca same zera, uznaj że brak ustawionych celów
+    if (data.kcal === 0 && data.protein === 0 && data.fat === 0 && data.carbs === 0) {
+      console.log('[API] Goals are all zeros, returning null to use fallback')
+      return null
+    }
+    
+    return {
+      kcal: data.kcal,
+      protein: data.protein,
+      fat: data.fat,
+      carbs: data.carbs,
+    }
+  } catch (error) {
+    console.error('[API] Network error during goals fetch:', error)
+    return null
+  }
+}
+
+/**
+ * Aktualizuje cele kaloryczne i makro zalogowanego użytkownika.
+ * 
+ * @param goals - nowe cele
+ * @returns true jeśli zapisano, false w przypadku błędu
+ */
+export async function updateGoals(goals: Macros): Promise<boolean> {
+  try {
+    const dto = {
+      kcal: goals.kcal,
+      protein: goals.protein,
+      fat: goals.fat,
+      carbs: goals.carbs,
+    }
+
+    const response = await fetch(`${API_BASE}/goals`, {
+      method: 'PUT',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(dto),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Goals update failed: ${response.status} ${response.statusText}`)
+      console.error(`[API] Error details:`, errorText)
+      return false
+    }
+
+    console.log('[API] Goals updated successfully')
+    return true
+  } catch (error) {
+    console.error('[API] Network error during goals update:', error)
     return false
   }
 }
