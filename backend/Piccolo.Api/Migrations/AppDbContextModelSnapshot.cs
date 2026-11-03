@@ -68,7 +68,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("UserId", "Date");
 
-                    b.ToTable("DiaryEntries");
+                    b.ToTable("DiaryEntries", (string)null);
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.PairingCode", b =>
@@ -108,7 +108,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("Code", "IsUsed", "ExpiresAt");
 
-                    b.ToTable("PairingCodes");
+                    b.ToTable("PairingCodes", (string)null);
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
@@ -175,7 +175,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", (string)null);
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.User", b =>
@@ -183,6 +183,12 @@ namespace Piccolo.Api.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
+
+                    b.Property<double>("CalorieGoal")
+                        .HasColumnType("REAL");
+
+                    b.Property<double>("CarbsGoal")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("ClerkUserId")
                         .IsRequired()
@@ -195,8 +201,14 @@ namespace Piccolo.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<double>("FatGoal")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("Name")
                         .HasColumnType("TEXT");
+
+                    b.Property<double>("ProteinGoal")
+                        .HasColumnType("REAL");
 
                     b.HasKey("Id");
 
@@ -205,7 +217,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.UserConnection", b =>
@@ -244,7 +256,7 @@ namespace Piccolo.Api.Migrations
                     b.HasIndex("User1Id", "User2Id")
                         .IsUnique();
 
-                    b.ToTable("UserConnections");
+                    b.ToTable("UserConnections", (string)null);
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>

@@ -107,14 +107,11 @@ export function CalorieTracker() {
   const [activeDate, setActiveDate] = useState(today)
   const [openMeal, setOpenMeal] = useState<MealType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  // Cele dzienne – startują z wartości domyślnych, edytowalne w SettingsSheet.
-  // TODO(backend): wczytać z GET /api/settings i zapisywać przez PUT.
-  const [goals, setGoals] = useState<Macros>({
-    kcal: GOALS.kcal,
-    protein: GOALS.protein,
-    fat: GOALS.fat,
-    carbs: GOALS.carbs,
-  })
+  
+  // Cele przeglądanego użytkownika (wyświetlane w DailySummary)
+  const [viewedGoals, setViewedGoals] = useState<Macros>(GOALS)
+  // Cele zalogowanego użytkownika (wyświetlane w SettingsPage)
+  const [ownGoals, setOwnGoals] = useState<Macros>(GOALS)
 
   // Obsługa parametrów URL po przekierowaniu z formularza produktu
   useEffect(() => {
@@ -155,6 +152,31 @@ export function CalorieTracker() {
   useEffect(() => {
     dispatch({ type: 'reset-entries' })
   }, [activeUserId])
+
+  // Załaduj cele przeglądanego użytkownika przy przełączeniu dziennika
+  useEffect(() => {
+    async function loadGoals() {
+      const goals = await api.getGoals(activeUserId)
+      if (goals) {
+        setViewedGoals(goals)
+      } else {
+        // Jeśli API nie odpowiada, użyj domyślnych wartości
+        setViewedGoals(GOALS)
+      }
+    }
+    loadGoals()
+  }, [activeUserId])
+
+  // Załaduj własne cele przy starcie (do użycia w ustawieniach)
+  useEffect(() => {
+    async function loadOwnGoals() {
+      const goals = await api.getGoals(undefined)
+      if (goals) {
+        setOwnGoals(goals)
+      }
+    }
+    loadOwnGoals()
+  }, [])
 
   useEffect(() => {
     async function loadDayEntries() {
@@ -277,7 +299,7 @@ export function CalorieTracker() {
       </main>
 
       {/* Podsumowanie kalorii – zawsze na dole ekranu */}
-      <DailySummary totals={dayTotals} goals={goals} />
+      <DailySummary totals={dayTotals} goals={viewedGoals} />
 
       {/* Sheet do dodawania posiłku */}
       <AddFoodSheet
@@ -295,10 +317,22 @@ export function CalorieTracker() {
 
       <SettingsPage
         open={settingsOpen}
-        goals={goals}
+        goals={ownGoals}
         onClose={() => setSettingsOpen(false)}
-        onSave={(next) => {
-          setGoals(next)
+        onSave={async (next) => {
+          // Zapisz cele w backendzie
+          const success = await api.updateGoals(next)
+          if (success) {
+            setOwnGoals(next)
+            // Jeśli przeglądamy własny dziennik, zaktualizuj także viewedGoals
+            if (!isViewingPartner) {
+              setViewedGoals(next)
+            }
+          } else {
+            // TODO: pokazać błąd użytkownikowi
+            dispatch({ type: 'set-error', error: 'Nie udało się zapisać celów' })
+            setTimeout(() => dispatch({ type: 'set-error', error: null }), 3000)
+          }
           setSettingsOpen(false)
         }}
       />

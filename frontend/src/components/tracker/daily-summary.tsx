@@ -11,8 +11,16 @@ export function DailySummary({ totals, goals }: Props) {
   const { language } = useLanguage()
   const t = (key: keyof typeof import('@/lib/i18n').TRANSLATIONS.en) => getTranslation(language, key)
   
-  const remaining = Math.max(0, goals.kcal - totals.kcal)
-  const kcalPct = goals.kcal > 0 ? Math.min(100, (totals.kcal / goals.kcal) * 100) : 0
+  // Defensive checks: upewnij się że goals zawiera sensowne wartości
+  const safeGoals = {
+    kcal: goals.kcal || 2100,
+    protein: goals.protein || 130,
+    fat: goals.fat || 70,
+    carbs: goals.carbs || 235,
+  }
+  
+  const remaining = Math.max(0, safeGoals.kcal - totals.kcal)
+  const kcalPct = safeGoals.kcal > 0 ? Math.min(100, (totals.kcal / safeGoals.kcal) * 100) : 0
 
   return (
     // Przypięty na stałe do dołu ekranu (fixed) – nie scrolluje się z listą posiłków.
@@ -34,7 +42,7 @@ export function DailySummary({ totals, goals }: Props) {
           </p>
         </div>
         <p className="pb-1 text-sm tabular-nums text-muted-foreground">
-          {totals.kcal} / {goals.kcal}
+          {totals.kcal} / {safeGoals.kcal}
         </p>
       </div>
 
@@ -42,7 +50,7 @@ export function DailySummary({ totals, goals }: Props) {
         role="progressbar"
         aria-valuenow={totals.kcal}
         aria-valuemin={0}
-        aria-valuemax={goals.kcal}
+        aria-valuemax={safeGoals.kcal}
         aria-label="Calories consumed"
         className="mt-2 h-2 overflow-hidden rounded-full bg-secondary"
       >
@@ -53,9 +61,9 @@ export function DailySummary({ totals, goals }: Props) {
       </div>
 
       <dl className="mt-3 grid grid-cols-3 gap-3">
-        <MacroStat label={t('protein')} value={totals.protein} goal={goals.protein} color="protein" />
-        <MacroStat label={t('fat')} value={totals.fat} goal={goals.fat} color="fat" />
-        <MacroStat label={t('carbs')} value={totals.carbs} goal={goals.carbs} color="carbs" />
+        <MacroStat label={t('protein')} value={totals.protein} goal={safeGoals.protein} color="protein" />
+        <MacroStat label={t('fat')} value={totals.fat} goal={safeGoals.fat} color="fat" />
+        <MacroStat label={t('carbs')} value={totals.carbs} goal={safeGoals.carbs} color="carbs" />
       </dl>
     </section>
   )
