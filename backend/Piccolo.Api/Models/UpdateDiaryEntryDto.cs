@@ -15,6 +15,16 @@ public class UpdateDiaryEntryDto
     /// </summary>
     public double? AmountInGrams { get; set; }
     
+    /// <summary>
+    /// Klucz jednostki (opcjonalny).
+    /// </summary>
+    public string? UnitKey { get; set; }
+    
+    /// <summary>
+    /// Ilość w jednostce (opcjonalna).
+    /// </summary>
+    public double? UnitQuantity { get; set; }
+    
     // Pola dla szybkich wpisów (Quick Add) - opcjonalne, aktualizowane tylko gdy podane
     public string? CustomName { get; set; }
     public float? CustomCalories { get; set; }

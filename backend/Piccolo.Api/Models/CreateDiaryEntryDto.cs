@@ -24,6 +24,16 @@ public class CreateDiaryEntryDto
     
     public double? AmountInGrams { get; set; }
     
+    /// <summary>
+    /// Klucz jednostki użytej przy dodawaniu (np. "portion", "slice", "g").
+    /// </summary>
+    public string? UnitKey { get; set; }
+    
+    /// <summary>
+    /// Ilość w jednostce (np. 3 dla "3 × porcja").
+    /// </summary>
+    public double? UnitQuantity { get; set; }
+    
     // Pola dla szybkich wpisów (Quick Add) - wypełnione gdy ProductId == null
     public string? CustomName { get; set; }
     public float? CustomCalories { get; set; }

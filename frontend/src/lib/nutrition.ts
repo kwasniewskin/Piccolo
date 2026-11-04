@@ -97,11 +97,36 @@ export function toEntryView(entry: DiaryEntry, products: Product[]): DiaryEntryV
   }
   const product = products.find((p) => p.id === entry.productId)
   if (!product) return null
+
+  // Jeśli wpis ma unitKey i unitQuantity, wygeneruj displayLabel
+  let displayLabel: string | undefined
+  if (entry.unitKey && entry.unitQuantity != null) {
+    // Formatuj ilość (usuwaj zbędne zera po przecinku, np. 1.0 → 1, 0.75 → 0,75)
+    const formattedQty = entry.unitQuantity.toLocaleString('pl-PL', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })
+    const grams = formatGrams(entry.amountInGrams)
+    
+    // Dla gramów: "150 g"
+    if (entry.unitKey === 'g' || entry.unitKey === 'ml') {
+      displayLabel = grams
+    } else {
+      // Dla innych jednostek: "3 × porcja (50 g)"
+      // getUnitLabel to funkcja z i18n.ts – używamy tu prostej wersji
+      const unitName = entry.unitKey === 'portion' ? 'porcja'
+        : entry.unitKey === 'package' ? 'opakowanie'
+        : entry.unitKey
+      displayLabel = `${formattedQty} × ${unitName} (${grams})`
+    }
+  }
+
   return {
     ...entry,
     ...macrosFor(product, entry.amountInGrams),
     productName: product.name,
     unit: product.unit,
+    displayLabel,
   }
 }
 
@@ -134,4 +159,103 @@ export function calcMacroPercentages(product: Product) {
     fatPct: Math.round((product.fatPer100g * KCAL_PER_GRAM.fat / totalKcal) * 100),
     carbsPct: Math.round((product.carbsPer100g * KCAL_PER_GRAM.carbs / totalKcal) * 100),
   }
+}
+
+// --- Jednostki (serving units) ------------------------------------------------
+
+export type AvailableUnit = { key: string; gramsPerUnit: number }
+
+/**
+ * Zwraca listę jednostek dostępnych dla danego produktu.
+ * Zawsze: 'g' (i 'ml' gdy produkt jest w ml).
+ * Dodatkowo: 'portion' (gdy defaultServingGrams jest), 'package' (gdy packageWeightGrams jest),
+ * oraz wszystkie jednostki z product.units.
+ */
+export function getAvailableUnits(product: Product): AvailableUnit[] {
+  const units: AvailableUnit[] = [{ key: 'g', gramsPerUnit: 1 }]
+
+  // ml traktujemy 1:1 z gramami (uproszczenie)
+  if (product.unit === 'ml') {
+    units.push({ key: 'ml', gramsPerUnit: 1 })
+  }
+
+  if (product.defaultServingGrams && product.defaultServingGrams > 0) {
+    units.push({ key: 'portion', gramsPerUnit: product.defaultServingGrams })
+  }
+
+  if (product.packageWeightGrams && product.packageWeightGrams > 0) {
+    units.push({ key: 'package', gramsPerUnit: product.packageWeightGrams })
+  }
+
+  // Jednostki niestandardowe z tabeli ProductUnits
+  if (product.units) {
+    product.units.forEach((u) => {
+      units.push({ key: u.unitKey, gramsPerUnit: u.gramsPerUnit })
+    })
+  }
+
+  return units
+}
+
+/**
+ * Przelicza ilość w danej jednostce na gramy.
+ * Zwraca 0, gdy jednostka nieznana.
+ */
+export function gramsFor(product: Product, unitKey: string, quantity: number): number {
+  const units = getAvailableUnits(product)
+  const unit = units.find((u) => u.key === unitKey)
+  return unit ? quantity * unit.gramsPerUnit : 0
+}
+
+/**
+ * Buduje 3 wiersze „szybkiego dodawania" (quick rows):
+ * Wiersze 1–2: ostatnio używane kombinacje (z historii) lub domyślne (1×porcja, 2×porcja, 100g).
+ * Wiersz 3: opakowanie lub 100g (jeśli opakowania brak).
+ * Duplikaty są pomijane.
+ */
+export function buildQuickRows(
+  product: Product,
+  usage: { recent: Array<{ unitKey: string; quantity: number }> } | null
+): Array<{ unitKey: string; quantity: number; grams: number }> {
+  const rows: Array<{ unitKey: string; quantity: number; grams: number }> = []
+  const seen = new Set<string>()
+
+  function addRow(unitKey: string, quantity: number) {
+    const grams = gramsFor(product, unitKey, quantity)
+    if (grams <= 0) return
+    const key = `${unitKey}:${quantity}`
+    if (seen.has(key)) return
+    seen.add(key)
+    rows.push({ unitKey, quantity, grams })
+  }
+
+  // Wiersze 1–2: ostatnio używane (jeśli są)
+  if (usage && usage.recent.length > 0) {
+    usage.recent.slice(0, 2).forEach((r) => addRow(r.unitKey, r.quantity))
+  } else {
+    // Fallback: 1 porcja, 2 porcje (jeśli produkt ma porcję), w przeciwnym razie 100g
+    if (product.defaultServingGrams && product.defaultServingGrams > 0) {
+      addRow('portion', 1)
+      addRow('portion', 2)
+    } else {
+      addRow('g', 100)
+    }
+  }
+
+  // Wiersz 3: opakowanie lub 100g
+  if (product.packageWeightGrams && product.packageWeightGrams > 0) {
+    addRow('package', 1)
+  } else {
+    addRow('g', 100)
+  }
+
+  return rows.slice(0, 3) // maksymalnie 3 wiersze
+}
+
+/**
+ * Formatuje gramy w formacie pl-PL (przecinek zamiast kropki).
+ * Przykład: formatGrams(16.7) => "16,7 g"
+ */
+export function formatGrams(grams: number): string {
+  return `${grams.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} g`
 }

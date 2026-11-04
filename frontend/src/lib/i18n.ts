@@ -82,6 +82,17 @@ export const TRANSLATIONS = {
     'viewing-partner-diary': 'You are viewing your partner\'s diary. New entries go to their diary.',
     'you': 'you',
     'partner': 'partner',
+    
+    // Units
+    'unit-g': 'g',
+    'unit-ml': 'ml',
+    'unit-portion': 'portion',
+    'unit-package': 'package',
+    'unit-slice': 'slice',
+    'unit-piece': 'piece',
+    'unit-tbsp': 'tbsp',
+    'unit-tsp': 'tsp',
+    'unit-glass': 'glass',
   },
   pl: {
     // Meals
@@ -164,6 +175,17 @@ export const TRANSLATIONS = {
     'viewing-partner-diary': 'Przeglądasz dziennik partnera. Nowe wpisy trafią do jego dziennika.',
     'you': 'Ciebie',
     'partner': 'partnera',
+    
+    // Units
+    'unit-g': 'g',
+    'unit-ml': 'ml',
+    'unit-portion': 'porcja',
+    'unit-package': 'opakowanie',
+    'unit-slice': 'plaster',
+    'unit-piece': 'sztuka',
+    'unit-tbsp': 'łyżka',
+    'unit-tsp': 'łyżeczka',
+    'unit-glass': 'szklanka',
   },
 } as const
 
@@ -174,6 +196,14 @@ export function getTranslation(lang: Language, key: keyof typeof TRANSLATIONS.en
 export function getMealLabel(lang: Language, mealId: string): string {
   const key = mealId as keyof typeof TRANSLATIONS.en
   return TRANSLATIONS[lang][key] || mealId
+}
+
+/**
+ * Zwraca przetłumaczoną nazwę jednostki (np. "portion" → "porcja").
+ */
+export function getUnitLabel(lang: Language, unitKey: string): string {
+  const key = `unit-${unitKey}` as keyof typeof TRANSLATIONS.en
+  return TRANSLATIONS[lang][key] || unitKey
 }
 
 /**
