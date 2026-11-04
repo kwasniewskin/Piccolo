@@ -87,6 +87,16 @@ public class DiaryController : ControllerBase
             return BadRequest("Wpis musi zawierać albo ProductId, albo dane produktu (CustomName, CustomCalories, etc.)");
         }
         
+        // Walidacja jednostki: oba pola razem albo żadne, ilość dodatnia
+        if ((dto.UnitKey == null) != (dto.UnitQuantity == null))
+        {
+            return BadRequest("UnitKey i UnitQuantity muszą być podane razem.");
+        }
+        if (dto.UnitQuantity is <= 0)
+        {
+            return BadRequest("UnitQuantity musi być większe od 0.");
+        }
+        
         // Walidacja: jeśli ProductId jest podane, produkt musi istnieć
         if (dto.ProductId.HasValue)
         {
@@ -103,6 +113,8 @@ public class DiaryController : ControllerBase
             MealType = dto.MealType,
             ProductId = dto.ProductId,
             AmountInGrams = dto.AmountInGrams,
+            UnitKey = dto.UnitKey,
+            UnitQuantity = dto.UnitQuantity,
             UserId = targetUserId,
             CreatedByUserId = currentUserId,
             // Pola dla szybkich wpisów
@@ -163,6 +175,16 @@ public class DiaryController : ControllerBase
             entry.AmountInGrams = dto.AmountInGrams;
         }
         
+        // Aktualizacja jednostek (opcjonalne)
+        if (dto.UnitKey != null)
+        {
+            entry.UnitKey = dto.UnitKey;
+        }
+        if (dto.UnitQuantity.HasValue)
+        {
+            entry.UnitQuantity = dto.UnitQuantity;
+        }
+        
         // Aktualizacja dla wpisu customowego
         if (entry.ProductId == null)
         {
@@ -209,6 +231,68 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
+    /// Zwraca historię użycia produktu w dzienniku użytkownika (lub partnera):
+    /// 2 ostatnie różne kombinacje (jednostka, ilość) oraz najczęściej używaną jednostkę.
+    /// Uwzględnia tylko wpisy z zapisaną jednostką (UnitKey != null).
+    /// GET /api/diary/product-usage/{productId}?targetUserId=2
+    /// </summary>
+    [HttpGet("product-usage/{productId:int}")]
+    public async Task<ActionResult<ProductUsageDto>> GetProductUsage(int productId, [FromQuery] int? targetUserId = null)
+    {
+        var currentUserId = await _userService.GetCurrentUserIdAsync();
+        var userId = targetUserId ?? currentUserId;
+
+        if (userId != currentUserId)
+        {
+            var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, userId);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
+
+        // Ostatnie 200 wpisów wystarczy do statystyki i nie obciąża bazy
+        var entries = await _context.DiaryEntries
+            .Where(e => e.UserId == userId
+                        && e.ProductId == productId
+                        && e.UnitKey != null
+                        && e.UnitQuantity != null)
+            .OrderByDescending(e => e.Date)
+            .ThenByDescending(e => e.Id)
+            .Select(e => new { e.UnitKey, e.UnitQuantity })
+            .Take(200)
+            .ToListAsync();
+
+        var result = new ProductUsageDto();
+
+        foreach (var e in entries)
+        {
+            if (result.Recent.Count >= 2) break;
+            var duplicate = result.Recent.Any(r => r.UnitKey == e.UnitKey && r.Quantity == e.UnitQuantity!.Value);
+            if (!duplicate)
+            {
+                result.Recent.Add(new ServingUsageDto { UnitKey = e.UnitKey!, Quantity = e.UnitQuantity!.Value });
+            }
+        }
+
+        // Najczęstsza jednostka; przy remisie wygrywa ta użyta najpóźniej (entries są posortowane malejąco)
+        var mostUsed = entries
+            .Select((e, index) => new { e.UnitKey, e.UnitQuantity, Index = index })
+            .GroupBy(e => e.UnitKey!)
+            .Select(g => new { UnitKey = g.Key, Count = g.Count(), Latest = g.First() })
+            .OrderByDescending(g => g.Count)
+            .ThenBy(g => g.Latest.Index)
+            .FirstOrDefault();
+
+        if (mostUsed != null)
+        {
+            result.MostUsed = new ServingUsageDto { UnitKey = mostUsed.UnitKey, Quantity = mostUsed.Latest.UnitQuantity!.Value };
+        }
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Pobiera wpis po ID (potrzebne dla CreatedAtAction, tylko jeśli należy do użytkownika lub jego partnera).
     /// GET /api/diary/{id}
     /// </summary>
@@ -235,4 +319,19 @@ public class DiaryController : ControllerBase
 
         return Ok(entry);
     }
+}
+
+/// <summary>
+/// DTO do zwracania historii użycia produktu przez użytkownika.
+/// </summary>
+public class ProductUsageDto
+{
+    public List<ServingUsageDto> Recent { get; set; } = new();
+    public ServingUsageDto? MostUsed { get; set; }
+}
+
+public class ServingUsageDto
+{
+    public required string UnitKey { get; set; }
+    public required double Quantity { get; set; }
 }

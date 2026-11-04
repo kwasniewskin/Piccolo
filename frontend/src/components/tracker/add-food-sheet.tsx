@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ChevronRight, ScanLine, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { calcMacroPercentages, MEALS, macrosFor } from '@/lib/nutrition'
+import { calcMacroPercentages, getAvailableUnits, gramsFor, MEALS, macrosFor, buildQuickRows } from '@/lib/nutrition'
 import type { Macros, MealType, Product } from '@/lib/types'
 import * as api from '@/lib/api'
 import { MacroCircle } from './macro-circle'
 import { BarcodeScanner } from './barcode-scanner'
+import { getUnitLabel, type Language } from '@/lib/i18n'
+import { FixedUnitCalculatorRow, QuickServingRow, UnitSelectCalculatorRow } from './serving-rows'
 
 // Słownik tłumaczeń nazw posiłków (dopełniacz)
 const mealTranslations: Record<string, string> = {
@@ -26,7 +28,7 @@ type Props = {
   date: string
   onClose: () => void
   /** Wywoływane po potwierdzeniu – pora posiłku, wybrany produkt i ilość. */
-  onAdd: (meal: MealType, product: Product, amountInGrams: number) => void
+  onAdd: (meal: MealType, product: Product, amountInGrams: number, unitKey?: string, quantity?: number) => void
   /** Wywoływane po dodaniu szybkiego wpisu – do odświeżenia listy */
   onQuickAddComplete?: () => void
   /** Wewnętrzne ID partnera, gdy dodajemy do jego dziennika; undefined = własny dziennik */
@@ -502,13 +504,13 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
         ) : (
           <PortionForm
             product={picked}
-            amount={amount}
-            setAmount={setAmount}
-            amountNum={amountNum}
-            validAmount={validAmount}
-            preview={preview}
             mealLabel={mealLabelPL}
-            onSubmit={handleAdd}
+            targetUserId={targetUserId}
+            date={date}
+            meal={meal!}
+            onClose={onClose}
+            onQuickAddComplete={onQuickAddComplete}
+            setToast={setToast}
           />
         )}
 
@@ -528,40 +530,77 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
 
 type PortionFormProps = {
   product: Product
-  amount: string
-  setAmount: (value: string) => void
-  amountNum: number
-  validAmount: boolean
-  preview: Macros | null
   mealLabel: string
-  onSubmit: () => void
+  targetUserId?: number
+  date: string
+  meal: MealType
+  onClose: () => void
+  onQuickAddComplete?: () => void
+  setToast: (msg: string | null) => void
 }
 
 /** Widok wyboru porcji dla wybranego produktu. */
 function PortionForm({
   product,
-  amount,
-  setAmount,
-  amountNum,
-  validAmount,
-  preview,
   mealLabel,
-  onSubmit,
+  targetUserId,
+  date,
+  meal,
+  onClose,
+  onQuickAddComplete,
+  setToast,
 }: PortionFormProps) {
-  // Szybkie porcje: domyślna + kilka typowych, bez duplikatów
-  const quick = [product.defaultServing, 50, 100, 200].filter((v, i, a) => a.indexOf(v) === i)
+  // Budujemy szybkie wiersze (1–3) używając buildQuickRows
+  const rawRows = buildQuickRows(product, null) // null = brak historii użycia, używamy fallbacków
+  
+  // Przekształcamy na format z etykietą i kcal
+  const quickRows = rawRows.map((row) => {
+    const macros = macrosFor(product, row.grams)
+    const label = row.unitKey === 'portion'
+      ? `${row.quantity} ${row.quantity === 1 ? 'porcja' : 'porcje'}`
+      : row.unitKey === 'package'
+      ? `${row.quantity} opakowanie`
+      : `${row.quantity} ${getUnitLabel('pl', row.unitKey)}`
+    
+    return {
+      label,
+      grams: row.grams,
+      kcal: macros.kcal,
+    }
+  })
   
   // Procenty kalorii z makroskładników (dla wykresów kołowych)
   const percentages = calcMacroPercentages(product)
 
+  // Wiersz 4: najczęściej używana jednostka (opcja z kalkulatorem)
+  // Na razie używamy domyślnie 'portion' jeśli produkt ma porcję, w przeciwnym razie 'g'
+  const mostUsedUnitKey = product.defaultServingGrams && product.defaultServingGrams > 0 ? 'portion' : 'g'
+  const mostUsedUnitLabel = getUnitLabel('pl', mostUsedUnitKey)
+  const mostUsedDefaultQuantity = 1
+
+  // Helper: importuj produkt z OFF jeśli potrzeba, następnie wykonaj akcję
+  const ensureImported = async (action: (importedProduct: Product) => Promise<void>) => {
+    let productToUse = product
+    
+    // Jeśli produkt pochodzi z OFF (nie ma jeszcze lokalnego ID), najpierw go zaimportuj
+    if (product.dataSource === 'OFF' || product.id === 0) {
+      console.log('[PortionForm] Product from OFF detected, importing before adding to diary...')
+      const imported = await api.importProduct(product)
+      
+      if (!imported) {
+        console.error('[PortionForm] Failed to import product from OFF')
+        setToast('Nie udało się zaimportować produktu')
+        return
+      }
+      
+      productToUse = imported
+    }
+    
+    await action(productToUse)
+  }
+
   return (
-    <form
-      className="flex flex-1 flex-col overflow-y-auto pb-6"
-      onSubmit={(e) => {
-        e.preventDefault()
-        onSubmit()
-      }}
-    >
+    <div className="flex flex-1 flex-col overflow-y-auto pb-6">
       {/* Nagłówek produktu z kolorowym tłem – kompaktowy */}
       <div className="mx-4 mb-4 rounded-2xl bg-primary px-4 py-2.5">
         <div>
@@ -575,51 +614,76 @@ function PortionForm({
       </div>
 
       <div className="flex flex-col gap-5 px-4">
-        {/* Wybór ilości */}
-        <div className="flex flex-col items-center gap-3">
-          <label htmlFor="amount" className="text-sm font-medium text-muted-foreground">
-            Wybierz ilość
-          </label>
-          <input
-            id="amount"
-            type="number"
-            inputMode="decimal"
-            min={1}
-            max={5000}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-40 rounded-2xl bg-card px-4 py-3 text-center font-heading text-3xl font-bold tabular-nums shadow-sm outline-none focus-visible:outline-2 focus-visible:outline-ring"
+        {/* Tabela wierszy dodawania */}
+        <div className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
+          {/* Wiersze 1–3: szybkie dodawanie */}
+          {quickRows.map((row, idx) => (
+            <QuickServingRow
+              key={idx}
+              label={row.label}
+              grams={row.grams}
+              kcal={row.kcal}
+              onAdd={() => {
+                // Dodaj produkt od razu do dziennika
+                const grams = row.grams
+                ensureImported(async (importedProduct) => {
+                  await api.createDiaryEntry(date, meal!, grams, {
+                    productId: importedProduct.id,
+                    targetUserId,
+                  })
+                  onQuickAddComplete?.()
+                  onClose()
+                }).catch((err) => {
+                  console.error('Błąd dodawania:', err)
+                  setToast('Błąd podczas dodawania')
+                })
+              }}
+            />
+          ))}
+          
+          {/* Wiersz 4: kalkulator z fixed unit (najczęściej używana jednostka) */}
+          <FixedUnitCalculatorRow
+            product={product}
+            unitKey={mostUsedUnitKey}
+            unitLabel={mostUsedUnitLabel}
+            defaultQuantity={mostUsedDefaultQuantity}
+            lang="pl"
+            onAdd={(quantity, grams) => {
+              // Dodaj produkt od razu do dziennika
+              ensureImported(async (importedProduct) => {
+                await api.createDiaryEntry(date, meal!, grams, {
+                  productId: importedProduct.id,
+                  targetUserId,
+                })
+                onQuickAddComplete?.()
+                onClose()
+              }).catch((err) => {
+                console.error('Błąd dodawania:', err)
+                setToast('Błąd podczas dodawania')
+              })
+            }}
           />
-          <div className="flex flex-wrap justify-center gap-2">
-            {quick.map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setAmount(String(v))}
-                aria-pressed={amountNum === v}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-sm font-medium transition-colors',
-                  amountNum === v
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-secondary-foreground hover:bg-border',
-                )}
-              >
-                {v} {product.unit}
-                {v === product.defaultServing && ' · portion'}
-              </button>
-            ))}
-          </div>
+          
+          {/* Wiersz 5: kalkulator z dropdown jednostek */}
+          <UnitSelectCalculatorRow
+            product={product}
+            lang="pl"
+            onAdd={(unitKey, quantity, grams) => {
+              // Dodaj produkt od razu do dziennika
+              ensureImported(async (importedProduct) => {
+                await api.createDiaryEntry(date, meal!, grams, {
+                  productId: importedProduct.id,
+                  targetUserId,
+                })
+                onQuickAddComplete?.()
+                onClose()
+              }).catch((err) => {
+                console.error('Błąd dodawania:', err)
+                setToast('Błąd podczas dodawania')
+              })
+            }}
+          />
         </div>
-
-        {/* Makro dla wpisanej porcji – bezpośrednio pod wyborem ilości */}
-        {validAmount && preview && (
-          <dl className="grid grid-cols-4 gap-2 rounded-3xl bg-card p-4 text-center shadow-sm">
-            <Nutrient label="kcal" value={preview.kcal} />
-            <Nutrient label="Białko" value={preview.protein} unit="g" />
-            <Nutrient label="Tłuszcze" value={preview.fat} unit="g" />
-            <Nutrient label="Węgle" value={preview.carbs} unit="g" />
-          </dl>
-        )}
 
         {/* Wartości referencyjne "W 100g" z wykresami kołowymi */}
         <div className="flex flex-col gap-4 rounded-3xl bg-card p-5 shadow-sm">
@@ -667,16 +731,8 @@ function PortionForm({
             </p>
           </div>
         )}
-
-        <button
-          type="submit"
-          disabled={!validAmount}
-          className="mt-2 rounded-full bg-primary py-4 text-base font-bold text-primary-foreground shadow-sm transition-transform active:scale-[0.98] disabled:opacity-40"
-        >
-          Dodaj do {mealLabel}
-        </button>
       </div>
-    </form>
+    </div>
   )
 }
 

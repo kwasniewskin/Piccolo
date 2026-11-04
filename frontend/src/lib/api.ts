@@ -40,9 +40,26 @@ type ApiProduct = {
   fiberPer100g?: number
   saltPer100g?: number
   packageWeightGrams?: number
+  defaultServingGrams?: number
   dataSource?: string
   imageUrl?: string
+  ingredients?: string
+  units?: ApiProductUnit[]
 }
+
+type ApiProductUnit = {
+  id: number
+  unitKey: string
+  gramsPerUnit: number
+  productId: number
+}
+
+/** Type guard sprawdzający, czy string jest prawidłowym UnitKey. */
+function isUnitKey(key: string): key is import('./types').UnitKey {
+  // Każdy niepusty string jest prawidłowy
+  return typeof key === 'string' && key.trim().length > 0
+}
+
 
 /**
  * DiaryEntry z backendu – zawiera zagnieżdżony obiekt `product`.
@@ -53,6 +70,8 @@ type ApiDiaryEntry = {
   mealType: MealType
   productId?: number | null
   amountInGrams: number
+  unitKey?: string
+  unitQuantity?: number
   product?: ApiProduct | null
   userId?: number
   createdByUserId?: number
@@ -74,6 +93,8 @@ type CreateDiaryEntryDto = {
   amountInGrams: number | null // Opcjonalny - null dla szybkich wpisów
   /** Wewnętrzne ID partnera – backend przyjmuje je w body (nie w query). */
   targetUserId?: number
+  unitKey?: string
+  unitQuantity?: number
   // Pola dla szybkich wpisów (Quick Add)
   customName?: string
   customCalories?: number
@@ -123,10 +144,13 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 function toFrontendProduct(api: ApiProduct): Product {
   return {
     ...api,
-    // Domyślne wartości dla pól frontendowych
+    // Domyślne wartości dla pól tylko-frontendowych
     unit: 'g',
-    defaultServing: api.packageWeightGrams || 100,
-    ingredients: undefined,
+    defaultServing: api.defaultServingGrams || api.packageWeightGrams || 100,
+    ingredients: api.ingredients, // przekaż składniki z backendu (a nie undefined!)
+    units: (api.units || [])
+      .filter(u => isUnitKey(u.unitKey))
+      .map(u => ({ ...u, unitKey: u.unitKey as import('./types').UnitKey })),
   }
 }
 
@@ -140,6 +164,8 @@ function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
     mealType: api.mealType,
     productId: api.productId ?? undefined,
     amountInGrams: api.amountInGrams,
+    unitKey: api.unitKey,
+    unitQuantity: api.unitQuantity,
     userId: api.userId,
     createdByUserId: api.createdByUserId,
     customName: api.customName,
@@ -253,12 +279,14 @@ export async function createDiaryEntry(
   amountInGrams: number | null,
   options: {
     productId?: number
+    unitKey?: string
     customName?: string
     customCalories?: number
     customProtein?: number
     customFat?: number
     customCarbs?: number
     targetUserId?: number
+    unitQuantity?: number
   } = {}
 ): Promise<DiaryEntry | null> {
   try {
@@ -642,6 +670,45 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
     return product
   } catch (error) {
     console.error('[API] Network error during barcode lookup:', error)
+    return null
+  }
+}
+
+/**
+ * Pobiera historię użycia produktu przez zalogowanego użytkownika (lub partnera).
+ * Zwraca 2 ostatnie różne kombinacje (jednostka, ilość) oraz najczęściej używaną jednostkę.
+ * GET /api/diary/product-usage/{productId}?targetUserId=...
+ */
+export async function getProductUsage(
+  productId: number,
+  targetUserId?: number
+): Promise<{ recent: Array<{ unitKey: string; quantity: number }>; mostUsed: { unitKey: string; quantity: number } | null } | null> {
+  try {
+    const params = new URLSearchParams()
+    if (targetUserId != null) {
+      params.set('targetUserId', String(targetUserId))
+    }
+
+    const url = params.toString()
+      ? `${API_BASE}/diary/product-usage/${productId}?${params}`
+      : `${API_BASE}/diary/product-usage/${productId}`
+
+    const headers = await getAuthHeaders()
+    const response = await fetch(url, { headers })
+
+    if (response.status === 403 && targetUserId != null) {
+      notifyPartnerAccessLost()
+      return null
+    }
+
+    if (!response.ok) {
+      console.error(`[API] Product usage fetch failed: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('[API] Network error during product usage fetch:', error)
     return null
   }
 }
