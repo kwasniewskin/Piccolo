@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Piccolo.Api.Models;
+using Piccolo.Api.Services;
 
 namespace Piccolo.Api.Data;
 
@@ -23,6 +24,44 @@ public class AppDbContext : DbContext
     public DbSet<UserConnection> UserConnections => Set<UserConnection>();
     
     public DbSet<ProductUnit> ProductUnits => Set<ProductUnit>();
+
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+
+    public DbSet<ProductSourceRef> ProductSourceRefs => Set<ProductSourceRef>();
+
+    public override int SaveChanges()
+    {
+        NormalizeProductSearchFields();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        NormalizeProductSearchFields();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void NormalizeProductSearchFields()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries<Product>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                entry.Entity.SearchName = SearchTextHelper.BuildProductSearchName(entry.Entity.Name, entry.Entity.Brand);
+                if (entry.Entity.CreatedAt == default)
+                    entry.Entity.CreatedAt = now;
+                entry.Entity.UpdatedAt = now;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.SearchName = SearchTextHelper.BuildProductSearchName(entry.Entity.Name, entry.Entity.Brand);
+                entry.Entity.UpdatedAt = now;
+            }
+        }
+    }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,6 +139,52 @@ public class AppDbContext : DbContext
             // Indeksy
             entity.HasIndex(u => u.ProductId);
             entity.HasIndex(u => new { u.ProductId, u.UnitKey }); // Composite index dla wyszukiwania jednostek produktu
+        });
+
+        // Konfiguracja Category
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.HasIndex(c => c.Slug).IsUnique();
+            entity.HasOne(c => c.Parent)
+                .WithMany(c => c.Children)
+                .HasForeignKey(c => c.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Konfiguracja Product
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.HasIndex(p => p.SearchName);
+            entity.HasIndex(p => p.Barcode);
+            entity.HasIndex(p => p.CategoryId);
+            entity.HasIndex(p => new { p.IsArchived, p.IsVerified });
+
+            entity.HasOne(p => p.Category)
+                .WithMany(c => c.Products)
+                .HasForeignKey(p => p.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.ImportBatch)
+                .WithMany()
+                .HasForeignKey(p => p.ImportBatchId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Konfiguracja ProductSourceRef
+        modelBuilder.Entity<ProductSourceRef>(entity =>
+        {
+            entity.HasIndex(r => new { r.Source, r.ExternalId }).IsUnique();
+            entity.HasIndex(r => r.ProductId);
+
+            entity.HasOne(r => r.Product)
+                .WithMany(p => p.SourceRefs)
+                .HasForeignKey(r => r.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.ImportBatch)
+                .WithMany()
+                .HasForeignKey(r => r.ImportBatchId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

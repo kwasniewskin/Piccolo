@@ -17,6 +17,33 @@ namespace Piccolo.Api.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("Piccolo.Api.Models.Category", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NamePl")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ParentId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.ToTable("Categories");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -24,6 +51,9 @@ namespace Piccolo.Api.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<double?>("AmountInGrams")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("CarbsPer100gSnapshot")
                         .HasColumnType("REAL");
 
                     b.Property<int>("CreatedByUserId")
@@ -47,11 +77,23 @@ namespace Piccolo.Api.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("TEXT");
 
+                    b.Property<float?>("FatPer100gSnapshot")
+                        .HasColumnType("REAL");
+
+                    b.Property<float?>("KcalPer100gSnapshot")
+                        .HasColumnType("REAL");
+
                     b.Property<int>("MealType")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("ProductId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("ProductNameSnapshot")
+                        .HasColumnType("TEXT");
+
+                    b.Property<float?>("ProteinPer100gSnapshot")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("UnitKey")
                         .HasColumnType("TEXT");
@@ -75,6 +117,50 @@ namespace Piccolo.Api.Migrations
                     b.HasIndex("UserId", "Date");
 
                     b.ToTable("DiaryEntries");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.ImportBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("FileSha256")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("FinishedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Inserted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Rejected")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Skipped")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Updated")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ImportBatches");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.PairingCode", b =>
@@ -135,6 +221,15 @@ namespace Piccolo.Api.Migrations
                     b.Property<double>("CarbsPer100g")
                         .HasColumnType("REAL");
 
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float?>("CholesterolMgPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CreatedByUserId")
                         .HasColumnType("TEXT");
 
@@ -154,11 +249,27 @@ namespace Piccolo.Api.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("ImportBatchId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Ingredients")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Manufacturer")
                         .HasColumnType("TEXT");
+
+                    b.Property<float?>("MonounsaturatedFatPer100g")
+                        .HasColumnType("REAL");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -166,6 +277,12 @@ namespace Piccolo.Api.Migrations
 
                     b.Property<float?>("PackageWeightGrams")
                         .HasColumnType("REAL");
+
+                    b.Property<float?>("PolyunsaturatedFatPer100g")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("PreparationState")
+                        .HasColumnType("TEXT");
 
                     b.Property<double>("ProteinPer100g")
                         .HasColumnType("REAL");
@@ -176,12 +293,67 @@ namespace Piccolo.Api.Migrations
                     b.Property<float?>("SaturatedFatPer100g")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("SearchName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<float?>("SugarsPer100g")
                         .HasColumnType("REAL");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("Barcode");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ImportBatchId");
+
+                    b.HasIndex("SearchName");
+
+                    b.HasIndex("IsArchived", "IsVerified");
+
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.ProductSourceRef", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ImportBatchId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float?>("MatchConfidence")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("OriginalName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportBatchId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("Source", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("ProductSourceRefs");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.ProductUnit", b =>
@@ -290,6 +462,16 @@ namespace Piccolo.Api.Migrations
                     b.ToTable("UserConnections");
                 });
 
+            modelBuilder.Entity("Piccolo.Api.Models.Category", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.Category", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Parent");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>
                 {
                     b.HasOne("Piccolo.Api.Models.Product", "Product")
@@ -317,6 +499,41 @@ namespace Piccolo.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.Category", "Category")
+                        .WithMany("Products")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Piccolo.Api.Models.ImportBatch", "ImportBatch")
+                        .WithMany()
+                        .HasForeignKey("ImportBatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Category");
+
+                    b.Navigation("ImportBatch");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.ProductSourceRef", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.ImportBatch", "ImportBatch")
+                        .WithMany()
+                        .HasForeignKey("ImportBatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Piccolo.Api.Models.Product", "Product")
+                        .WithMany("SourceRefs")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportBatch");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.ProductUnit", b =>
@@ -349,9 +566,18 @@ namespace Piccolo.Api.Migrations
                     b.Navigation("User2");
                 });
 
+            modelBuilder.Entity("Piccolo.Api.Models.Category", b =>
+                {
+                    b.Navigation("Children");
+
+                    b.Navigation("Products");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
                 {
                     b.Navigation("DiaryEntries");
+
+                    b.Navigation("SourceRefs");
 
                     b.Navigation("Units");
                 });

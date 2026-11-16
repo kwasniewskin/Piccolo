@@ -93,6 +93,15 @@ export const TRANSLATIONS = {
     'unit-tbsp': 'tbsp',
     'unit-tsp': 'tsp',
     'unit-glass': 'glass',
+    'unit-handful': 'handful',
+    'unit-bread_slice': 'bread slice',
+    'unit-cube': 'cube',
+    'unit-pinch': 'pinch',
+    'unit-scoop': 'scoop',
+    'unit-bar': 'bar',
+    'unit-head': 'head',
+    'unit-leaf': 'leaf',
+    'unit-floret': 'floret',
   },
   pl: {
     // Meals
@@ -186,6 +195,15 @@ export const TRANSLATIONS = {
     'unit-tbsp': 'łyżka',
     'unit-tsp': 'łyżeczka',
     'unit-glass': 'szklanka',
+    'unit-handful': 'garść',
+    'unit-bread_slice': 'kromka',
+    'unit-cube': 'kostka',
+    'unit-pinch': 'szczypta',
+    'unit-scoop': 'gałka',
+    'unit-bar': 'tabliczka',
+    'unit-head': 'główka',
+    'unit-leaf': 'liść',
+    'unit-floret': 'różyczka',
   },
 } as const
 

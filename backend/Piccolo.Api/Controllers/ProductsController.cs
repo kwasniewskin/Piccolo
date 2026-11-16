@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -32,14 +33,79 @@ public class ProductsController : ControllerBase
         var results = new List<Product>();
 
         // 1. Pobierz wyniki z lokalnej bazy (mają Id)
-        IQueryable<Product> localQuery = _context.Products.Include(p => p.Units);
-        
-        if (!string.IsNullOrWhiteSpace(name))
+        IQueryable<Product> localQuery = _context.Products
+            .AsNoTracking()
+            .Include(p => p.Units)
+            .Where(p => !p.IsArchived);
+
+        var normQuery = SearchTextHelper.NormalizeForSearch(name);
+        var tokens = SearchTextHelper.TokenizeQuery(name);
+        var personalUsage = await GetPersonalUsageCountsAsync();
+
+        foreach (var token in tokens)
         {
-            localQuery = localQuery.Where(p => p.Name.Contains(name));
+            var tok = token;
+            localQuery = localQuery.Where(p => p.SearchName.Contains(tok));
         }
 
-        var localProducts = await localQuery.Take(100).ToListAsync();
+        List<Product> localProducts;
+        if (tokens.Length > 0)
+        {
+            var candidates = await localQuery
+                .OrderByDescending(p => p.IsVerified)
+                .ThenBy(p => p.Name.Length)
+                .Take(250)
+                .ToListAsync();
+
+            if (personalUsage.Count > 0)
+            {
+                var candidateIds = candidates.Select(c => c.Id).ToHashSet();
+                var missingPersonalIds = personalUsage.Keys.Where(id => !candidateIds.Contains(id)).ToList();
+                if (missingPersonalIds.Count > 0)
+                {
+                    var extraPersonal = await localQuery
+                        .Where(p => missingPersonalIds.Contains(p.Id))
+                        .ToListAsync();
+                    candidates.AddRange(extraPersonal);
+                }
+            }
+
+            localProducts = candidates
+                .OrderByDescending(p => ScoreSearchMatch(p, normQuery, tokens, personalUsage.GetValueOrDefault(p.Id)))
+                .ThenBy(p => p.Name.Length)
+                .Take(50)
+                .ToList();
+        }
+        else
+        {
+            var defaultCandidates = await localQuery
+                .OrderByDescending(p => p.IsVerified)
+                .ThenByDescending(p => p.Id)
+                .Take(100)
+                .ToListAsync();
+
+            if (personalUsage.Count > 0)
+            {
+                var existingIds = defaultCandidates.Select(c => c.Id).ToHashSet();
+                var missingPersonalIds = personalUsage.Keys.Where(id => !existingIds.Contains(id)).ToList();
+                if (missingPersonalIds.Count > 0)
+                {
+                    var extraPersonal = await _context.Products
+                        .AsNoTracking()
+                        .Include(p => p.Units)
+                        .Where(p => !p.IsArchived && missingPersonalIds.Contains(p.Id))
+                        .ToListAsync();
+                    defaultCandidates.AddRange(extraPersonal);
+                }
+            }
+
+            localProducts = defaultCandidates
+                .OrderByDescending(p => personalUsage.GetValueOrDefault(p.Id))
+                .ThenByDescending(p => p.IsVerified)
+                .ThenByDescending(p => p.Id)
+                .Take(50)
+                .ToList();
+        }
         results.AddRange(localProducts);
 
         // 2. Pobierz wyniki z Open Food Facts (jeśli podano nazwę)
@@ -75,7 +141,7 @@ public class ProductsController : ControllerBase
         // 1. Sprawdź lokalną bazę
         var localProduct = await _context.Products
             .Include(p => p.Units)
-            .FirstOrDefaultAsync(p => p.Barcode == barcode);
+            .FirstOrDefaultAsync(p => !p.IsArchived && p.Barcode == barcode);
 
         if (localProduct != null)
         {
@@ -195,6 +261,7 @@ public class ProductsController : ControllerBase
         // Aktualizuj pola
         existingProduct.Barcode = product.Barcode;
         existingProduct.Name = product.Name;
+        existingProduct.Brand = product.Brand;
         existingProduct.Manufacturer = product.Manufacturer;
         existingProduct.CaloriesPer100g = product.CaloriesPer100g;
         existingProduct.ProteinPer100g = product.ProteinPer100g;
@@ -268,7 +335,7 @@ public class ProductsController : ControllerBase
     public async Task<ActionResult<object>> DeleteSampleProducts()
     {
         var sampleProducts = await _context.Products
-            .Where(p => p.Barcode == null || p.Barcode == "")
+            .Where(p => p.ImportBatchId == null && !p.IsVerified && (p.Barcode == null || p.Barcode == ""))
             .ToListAsync();
 
         if (sampleProducts.Count == 0)
@@ -300,5 +367,65 @@ public class ProductsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private async Task<Dictionary<int, int>> GetPersonalUsageCountsAsync()
+    {
+        var clerkId = User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrWhiteSpace(clerkId))
+            return new Dictionary<int, int>();
+
+        var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-90));
+        return await _context.DiaryEntries
+            .AsNoTracking()
+            .Where(d => d.ProductId != null && d.Date >= cutoff && d.User.ClerkUserId == clerkId)
+            .GroupBy(d => d.ProductId!.Value)
+            .Select(g => new { ProductId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ProductId, x => x.Count);
+    }
+
+    private static double ScoreSearchMatch(Product p, string normQuery, string[] tokens, int personalUsageCount)
+    {
+        var normName = SearchTextHelper.NormalizeForSearch(p.Name);
+        var normBrand = SearchTextHelper.NormalizeForSearch(p.Brand);
+
+        double score = 0;
+        if (p.IsVerified)
+            score += 1200;
+
+        if (personalUsageCount > 0)
+            score += 800 + Math.Min(personalUsageCount, 10) * 70;
+
+        if (normName == normQuery)
+            score += 600;
+        else if (normName.StartsWith(normQuery, StringComparison.Ordinal))
+            score += 300;
+        else if (normName.Contains(" " + normQuery, StringComparison.Ordinal))
+            score += 80;
+
+        if (!string.IsNullOrEmpty(normBrand))
+        {
+            if (normBrand == normQuery)
+                score += 250;
+            else
+            {
+                foreach (var tok in tokens)
+                {
+                    if (normBrand.Contains(tok, StringComparison.Ordinal))
+                        score += 120;
+                }
+            }
+        }
+
+        score += p.Kind switch
+        {
+            "generic" => 80,
+            "user" => 50,
+            "branded" => 10,
+            _ => 0
+        };
+
+        score -= p.Name.Length * 0.5;
+        return score;
     }
 }

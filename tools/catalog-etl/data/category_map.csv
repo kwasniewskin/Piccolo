@@ -1,0 +1,177 @@
+source,source_key,target_slug
+FITATU,17,warzywa-swieze
+FITATU,20,ziola-i-kielki
+FITATU,61,mrozonki-warzywne
+FITATU,66,grzyby
+FITATU,67,grzyby
+FITATU,87,konserwy-warzywne
+FITATU,18,owoce-swieze
+FITATU,19,owoce-suszone
+FITATU,96,owoce-przetworzone
+FITATU,28,mleko
+FITATU,29,smietana
+FITATU,30,jogurty-i-kefiry
+FITATU,31,jaja
+FITATU,32,sery-i-twarogi
+FITATU,33,desery-mleczne
+FITATU,21,drob
+FITATU,22,mieso-czerwone
+FITATU,23,wedliny
+FITATU,64,mieso-inne
+FITATU,88,konserwy-miesne
+FITATU,100,pasty-kanapkowe
+FITATU,24,ryby-swieze
+FITATU,25,owoce-morza
+FITATU,26,konserwy-rybne
+FITATU,27,ryby-wedzone
+FITATU,62,ryby-panierowane
+FITATU,52,pieczywo
+FITATU,53,pieczywo-chrupkie
+FITATU,54,bulka-tarta
+FITATU,71,platki-sniadaniowe
+FITATU,72,musli-i-owsianki
+FITATU,73,otreby
+FITATU,78,makarony
+FITATU,79,kasze-i-ryz
+FITATU,80,maki
+FITATU,42,orzechy
+FITATU,43,nasiona-i-pestki
+FITATU,58,maslo-i-margaryny
+FITATU,59,tluszcze-zwierzece
+FITATU,60,oleje
+FITATU,89,zamienniki-roslinne
+FITATU,101,hummus
+FITATU,44,ciastka
+FITATU,45,chipsy-i-chrupki
+FITATU,46,przekaski-slone
+FITATU,47,czekolady
+FITATU,48,batony-i-wafelki
+FITATU,49,cukierki-i-zelki
+FITATU,50,bakalie-w-czekoladzie
+FITATU,51,cukierki-i-zelki
+FITATU,55,ciasta-i-torty
+FITATU,56,ciasta-i-torty
+FITATU,57,ciasta-i-torty
+FITATU,63,lody
+FITATU,92,kremy-dzemy-miody
+FITATU,85,kremy-dzemy-miody
+FITATU,86,kremy-dzemy-miody
+FITATU,38,desery-w-proszku
+FITATU,83,desery-w-proszku
+FITATU,7,czekolady
+FITATU,34,woda
+FITATU,35,soki-i-nektary
+FITATU,36,napoje-slodzone
+FITATU,37,napoje-slodzone
+FITATU,41,energetyki-i-izotoniki
+FITATU,82,kawa-i-herbata
+FITATU,102,woda
+FITATU,39,piwo
+FITATU,40,wino-i-mocne
+FITATU,65,dania-mrozone
+FITATU,68,dania-obiadowe
+FITATU,69,salatki-i-surowki
+FITATU,70,fast-food
+FITATU,84,dania-obiadowe
+FITATU,99,dania-obiadowe
+FITATU,97,sosy-i-ketchupy
+FITATU,81,przyprawy
+FITATU,90,sosy-i-ketchupy
+FITATU,91,sosy-i-ketchupy
+FITATU,95,dodatki-do-pieczenia
+FITATU,98,sosy-i-ketchupy
+FITATU,74,zywnosc-dla-dzieci
+FITATU,75,zywnosc-dla-dzieci
+FITATU,76,zywnosc-dla-dzieci
+FITATU,77,zywnosc-dla-dzieci
+FITATU,93,suplementy-i-sport
+USDA,Vegetables and Vegetable Products,warzywa-swieze
+USDA,Fruits and Fruit Juices,owoce-swieze
+USDA,Dairy and Egg Products,sery-i-twarogi
+USDA,Poultry Products,drob
+USDA,Beef Products,mieso-czerwone
+USDA,Pork Products,mieso-czerwone
+USDA,"Lamb, Veal, and Game Products",mieso-czerwone
+USDA,Sausages and Luncheon Meats,wedliny
+USDA,Finfish and Shellfish Products,ryby-swieze
+USDA,Cereal Grains and Pasta,kasze-i-ryz
+USDA,Baked Products,pieczywo
+USDA,Breakfast Cereals,platki-sniadaniowe
+USDA,Fats and Oils,oleje
+USDA,Nut and Seed Products,orzechy
+USDA,Legumes and Legume Products,straczkowe
+USDA,Beverages,napoje-slodzone
+USDA,Sweets,cukry-i-slodziki
+USDA,Snacks,przekaski-slone
+USDA,"Soups, Sauces, and Gravies",sosy-i-ketchupy
+USDA,Spices and Herbs,przyprawy
+USDA,"Meals, Entrees, and Side Dishes",dania-obiadowe
+USDA,Fast Foods,fast-food
+USDA,Restaurant Foods,fast-food
+USDA,Baby Foods,zywnosc-dla-dzieci
+USDA,American Indian/Alaska Native Foods,mieso-inne
+CIQUAL,0101,salatki-i-surowki
+CIQUAL,0102,dania-obiadowe
+CIQUAL,0103,dania-obiadowe
+CIQUAL,0104,fast-food
+CIQUAL,0105,fast-food
+CIQUAL,0106,przekaski-slone
+CIQUAL,0201,warzywa-swieze
+CIQUAL,0202,warzywa-swieze
+CIQUAL,0203,straczkowe
+CIQUAL,0204,owoce-swieze
+CIQUAL,0205,orzechy
+CIQUAL,0301,kasze-i-ryz
+CIQUAL,0302,pieczywo
+CIQUAL,0303,pieczywo-chrupkie
+CIQUAL,0304,maki
+CIQUAL,0305,dodatki-do-pieczenia
+CIQUAL,0401,mieso-czerwone
+CIQUAL,0402,mieso-czerwone
+CIQUAL,0403,wedliny
+CIQUAL,0404,mieso-inne
+CIQUAL,0405,ryby-swieze
+CIQUAL,0406,ryby-swieze
+CIQUAL,0407,owoce-morza
+CIQUAL,0408,owoce-morza
+CIQUAL,0409,ryby-panierowane
+CIQUAL,0410,jaja
+CIQUAL,0411,zamienniki-roslinne
+CIQUAL,0501,mleko
+CIQUAL,0502,jogurty-i-kefiry
+CIQUAL,0503,sery-i-twarogi
+CIQUAL,0504,smietana
+CIQUAL,0601,woda
+CIQUAL,0602,napoje-slodzone
+CIQUAL,0603,wino-i-mocne
+CIQUAL,0701,cukry-i-slodziki
+CIQUAL,0702,czekolady
+CIQUAL,0703,cukierki-i-zelki
+CIQUAL,0704,kremy-dzemy-miody
+CIQUAL,0705,ciasta-i-torty
+CIQUAL,0706,ciastka
+CIQUAL,0707,platki-sniadaniowe
+CIQUAL,0708,batony-i-wafelki
+CIQUAL,0709,ciasta-i-torty
+CIQUAL,0801,lody
+CIQUAL,0802,lody
+CIQUAL,0803,lody
+CIQUAL,0901,maslo-i-margaryny
+CIQUAL,0902,oleje
+CIQUAL,0903,maslo-i-margaryny
+CIQUAL,0904,oleje
+CIQUAL,0905,tluszcze-zwierzece
+CIQUAL,1001,sosy-i-ketchupy
+CIQUAL,1002,sosy-i-ketchupy
+CIQUAL,1003,dodatki-do-pieczenia
+CIQUAL,1004,przyprawy
+CIQUAL,1005,przyprawy
+CIQUAL,1006,ziola-i-kielki
+CIQUAL,1007,warzywa-swieze
+CIQUAL,1008,suplementy-i-sport
+CIQUAL,1009,zamienniki-roslinne
+CIQUAL,1010,hummus
+CIQUAL,1101,zywnosc-dla-dzieci
+CIQUAL,1102,zywnosc-dla-dzieci
+CIQUAL,1103,zywnosc-dla-dzieci
+CIQUAL,1104,zywnosc-dla-dzieci

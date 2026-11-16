@@ -1,0 +1,45 @@
+source,raw_unit,unit_key
+FITATU,g,SKIP_GRAMS
+FITATU,dkg,SKIP_UNIVERSAL
+FITATU,ml,ml
+FITATU,porcja,PORTION_FIELD
+FITATU,opakowanie,PACKAGE_FIELD
+FITATU,łyżka,tbsp
+FITATU,łyżka do sosu,tbsp
+FITATU,łyżeczka,tsp
+FITATU,łyżeczka płaska,tsp
+FITATU,łyżeczka czubata,tsp
+FITATU,szklanka,glass
+FITATU,duża szklanka,glass
+FITATU,plaster,slice
+FITATU,sztuka,piece
+FITATU,sztuka średnia,piece
+FITATU,sztuka duża,piece
+FITATU,sztuka mała,piece
+FITATU,garść,handful
+FITATU,kromka,bread_slice
+FITATU,kostka,cube
+FITATU,szczypta,pinch
+FITATU,gałka,scoop
+FITATU,tabliczka,bar
+FITATU,główka,head
+FITATU,liść,leaf
+FITATU,różyczka,floret
+USDA,tablespoon,tbsp
+USDA,tbsp,tbsp
+USDA,teaspoon,tsp
+USDA,tsp,tsp
+USDA,cup,glass
+USDA,slice,slice
+USDA,piece,piece
+USDA,pieces,piece
+USDA,each,piece
+USDA,fruit,piece
+USDA,egg,piece
+USDA,medium,piece
+USDA,serving,PORTION_FIELD
+USDA,package,PACKAGE_FIELD
+USDA,container,PACKAGE_FIELD
+USDA,bar,bar
+USDA,scoop,scoop
+USDA,milliliter,ml
