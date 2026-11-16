@@ -9,6 +9,8 @@ frontend/.env.development.local
 frontend/.env.test.local
 frontend/.vercel
 frontend/.turbo
+frontend/AGENTS.md
+frontend/CLAUDE.md
 
 # Backend (.NET)
 **/bin/
@@ -32,7 +34,15 @@ backend/Piccolo.Api/*.db
 backend/Piccolo.Api/*.db-shm
 backend/Piccolo.Api/*.db-wal
 backend/Piccolo.Api/app.db*
+backend/Piccolo.Api/backups/
 *.backup
+
+# Catalog ETL raw data & generated outputs
+tools/catalog-etl/.venv/
+tools/catalog-etl/data-raw/
+tools/catalog-etl/out/
+tools/catalog-etl/__pycache__/
+tools/catalog-etl/*/__pycache__/
 
 # Logs
 *.log

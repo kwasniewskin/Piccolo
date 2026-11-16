@@ -1,0 +1,207 @@
+core_id,name_pl,category_slug,prep_state,search_en,exclude_en,kcal_min,kcal_max
+banan,Banan,owoce-swieze,raw,bananas ripe and slightly ripe raw|banana flesh without skin raw|bananas raw,plantain|dried|chip|baby|flour|bread|overripe,75,110
+jablko,Jabłko,owoce-swieze,raw,apples raw|apple raw|apple pulp and peel raw,juice|sauce|dried|pie|butter|baby,40,65
+gruszka,Gruszka,owoce-swieze,raw,pears raw|pear raw,dried|canned|syrup|juice|nectar|baby,45,70
+pomarancza,Pomarańcza,owoce-swieze,raw,oranges raw|orange raw|orange pulp raw,juice|peel|marmalade|canned,35,55
+mandarynka,Mandarynka,owoce-swieze,raw,tangerines raw|mandarin oranges raw|clementine raw,canned|syrup|juice,35,60
+cytryna,Cytryna,owoce-swieze,raw,lemons raw|lemon raw|lemon pulp raw,juice|peel|curd,20,45
+grejpfrut,Grejpfrut,owoce-swieze,raw,grapefruit raw,juice|canned|syrup,25,50
+truskawki,Truskawki,owoce-swieze,raw,strawberries raw|strawberry raw,frozen|syrup|jam|yogurt|ice cream,25,45
+maliny,Maliny,owoce-swieze,raw,raspberries raw|raspberry raw,jam|syrup|juice|frozen,30,60
+borowki,Borówki amerykańskie,owoce-swieze,raw,blueberries raw|blueberry raw,muffin|syrup|jam|dried|pancake,40,70
+winogrona,Winogrona,owoce-swieze,raw,grapes raw|grape raw,raisin|juice|jelly|wine,55,85
+sliwki,Śliwki,owoce-swieze,raw,plums raw|plum raw,dried|prune|canned|jam,35,60
+wisnie,Wiśnie,owoce-swieze,raw,cherries sour raw|cherries sweet raw|cherry raw,pie|jam|canned|syrup|marashino,40,70
+czeresnie,Czereśnie,owoce-swieze,raw,cherries sweet raw,sour|pie|canned|jam,50,75
+brzoskwinia,Brzoskwinia,owoce-swieze,raw,peaches raw|peach raw,canned|syrup|dried|nectar|baby,30,55
+nektarynka,Nektarynka,owoce-swieze,raw,nectarines raw|nectarine raw,dried|canned,35,55
+morela,Morela,owoce-swieze,raw,apricots raw|apricot raw,dried|canned|jam|nectar,35,55
+arbuz,Arbuz,owoce-swieze,raw,watermelon raw,juice|seed|rind,20,40
+melon,Melon,owoce-swieze,raw,melons cantaloupe raw|melon honeydew raw,dried|candied,25,45
+kiwi,Kiwi,owoce-swieze,raw,kiwifruit green raw|kiwi raw,dried|jam,45,70
+ananas,Ananas,owoce-swieze,raw,pineapple raw,canned|syrup|juice|dried,40,60
+mango,Mango,owoce-swieze,raw,mangos raw|mango raw,dried|chutney|juice|nectar,50,75
+awokado,Awokado,owoce-swieze,raw,avocados raw|avocado raw,oil|guacamole,130,220
+granat,Granat,owoce-swieze,raw,pomegranates raw|pomegranate raw,juice|syrup|molasses,60,95
+zurawina-suszona,Żurawina suszona,owoce-suszone,processed,cranberries dried sweetened|cranberry dried,juice|sauce|raw,280,350
+rodzynki,Rodzynki,owoce-suszone,processed,raisins seeded|raisins seedless|raisin,chocolate|bread|cookie,270,330
+daktyle,Daktyle suszone,owoce-suszone,processed,dates deglet noor|dates medjool|date dried,syrup|sauce|bar,260,310
+sliwki-suszone,Śliwki suszone,owoce-suszone,processed,plums dried|prunes dried,stewed|juice|baby,210,270
+ziemniaki-surowe,Ziemniaki surowe,warzywa-swieze,raw,potatoes raw|potato raw|potato peeled raw,sweet|chips|fried|mashed|french|flour|starch,60,90
+ziemniaki-gotowane,Ziemniaki gotowane,warzywa-swieze,cooked,potatoes boiled cooked|potato boiled,sweet|mashed|fried|butter|salad,65,95
+bataty-surowe,Bataty surowe,warzywa-swieze,raw,sweet potato raw,cooked|baked|canned|chips|pie,75,100
+marchew,Marchew,warzywa-swieze,raw,carrots raw|carrot raw,cooked|canned|juice|baby|cake,30,50
+pietruszka-korzen,Pietruszka korzeń,warzywa-swieze,raw,parsley root raw|parsnip raw|celeriac raw,dried|leaf|herb,35,85
+seler-korzen,Seler korzeń,warzywa-swieze,raw,celeriac raw|celery root raw,cooked|boiled,20,50
+seler-naciowy,Seler naciowy,warzywa-swieze,raw,celery raw,seed|salt|soup|cooked,10,22
+por,Por,warzywa-swieze,raw,leeks bulb and lower leaf-portion raw|leek raw,cooked|soup|dried,25,65
+cebula,Cebula,warzywa-swieze,raw,onions raw|onion raw,rings|fried|powder|dried|soup|green|spring,30,50
+czosnek,Czosnek świeży,warzywa-swieze,raw,garlic raw,powder|bread|salt|oil|sauce,110,160
+pomidor,Pomidor,warzywa-swieze,raw,tomato round raw|tomato raw average|tomatoes red ripe raw,green|paste|sauce|puree|juice|canned|dried|soup|ketchup|grape|cherry,14,26
+ogorek,Ogórek świeży,warzywa-swieze,raw,cucumber with peel raw|cucumber peeled raw|cucumber raw,pickled|salad|soup,10,20
+ogorek-kiszony,Ogórek kiszony / konserwowy,konserwy-warzywne,processed,pickles cucumber dill|gherkins in brine|pickled cucumber,sweet|relish,10,30
+papryka-czerwona,Papryka czerwona,warzywa-swieze,raw,peppers sweet red raw|pepper sweet red raw,chili|jalapeno|powder|spice|stuffed,20,40
+papryka-zielona,Papryka zielona,warzywa-swieze,raw,peppers sweet green raw|pepper sweet green raw,chili|jalapeno|stuffed,15,30
+papryka-zolta,Papryka żółta,warzywa-swieze,raw,peppers sweet yellow raw|pepper sweet yellow raw,chili|stuffed,20,38
+brokul-surowy,Brokuł surowy,warzywa-swieze,raw,broccoli raw,raab|soup|cheese|cooked,25,42
+brokul-gotowany,Brokuł gotowany,warzywa-swieze,cooked,broccoli cooked boiled,cheese|soup|sauce,25,42
+kalafior-surowy,Kalafior surowy,warzywa-swieze,raw,cauliflower raw,cooked|cheese|rice|soup,18,32
+kapusta-biala,Kapusta biała,warzywa-swieze,raw,cabbage raw|white cabbage raw,red|savoy|chinese|sauerkraut|soup|salad,18,32
+kapusta-czerwona,Kapusta czerwona,warzywa-swieze,raw,cabbage red raw|red cabbage raw,cooked|pickled|apple,20,38
+kapusta-pekinska,Kapusta pekińska,warzywa-swieze,raw,cabbage chinese pe-tsai raw|chinese cabbage raw,cooked|kimchi,10,22
+kapusta-kiszona,Kapusta kiszona,konserwy-warzywne,processed,sauerkraut canned|sauerkraut,soup|sausage|pork,12,30
+burak-surowy,Burak ćwikłowy surowy,warzywa-swieze,raw,beets raw|beetroot raw,greens|canned|juice|pickled,30,52
+burak-gotowany,Burak ćwikłowy gotowany,warzywa-swieze,cooked,beets cooked boiled|beetroot cooked,greens|pickled,35,55
+cukinia,Cukinia,warzywa-swieze,raw,zucchini raw|courgette raw|squash summer zucchini raw,bread|fried|cooked,12,24
+baklazan,Bakłażan,warzywa-swieze,raw,eggplant raw|aubergine raw,fried|cooked|dip|parmesan,18,32
+dynia,Dynia,warzywa-swieze,raw,pumpkin raw,pie|seed|canned|spiced|bread,18,35
+szpinak-surowy,Szpinak świeży,warzywa-swieze,raw,spinach raw,cooked|canned|frozen|dip|creamed,16,30
+salata-maslowa,Sałata masłowa / zielona,warzywa-swieze,raw,lettuce butterhead raw|lettuce green leaf raw|lettuce raw,salad dressing|caesar,10,22
+salata-lodowa,Sałata lodowa,warzywa-swieze,raw,lettuce iceberg raw,dressing,10,20
+rukola,Rukola,warzywa-swieze,raw,arugula raw|rocket raw,salad|pesto,18,32
+rzodkiewka,Rzodkiewka,warzywa-swieze,raw,radishes raw|radish raw,oriental|daikon|pickled,12,24
+kalarepa,Kalarepa,warzywa-swieze,raw,kohlrabi raw,cooked,20,35
+brukselka,Brukselka,warzywa-swieze,raw,brussels sprouts raw,cooked|frozen,32,50
+szparagi,Szparagi,warzywa-swieze,raw,asparagus raw,canned|soup|cooked,15,28
+fasolka-szparagowa,Fasolka szparagowa,warzywa-swieze,raw,beans snap green raw|green beans raw,canned|cooked|soup,22,40
+groszek-zielony,Groszek zielony,warzywa-swieze,raw,peas green raw|green peas raw,split|soup|canned|snow,60,95
+kukurydza-konserwowa,Kukurydza konserwowa,konserwy-warzywne,processed,corn sweet yellow canned drained|sweetcorn canned,cream|flour|meal|oil|syrup|popcorn,65,105
+pieczarki,Pieczarki świeże,grzyby,raw,mushrooms white raw|cultivated mushroom raw,canned|soup|fried|dried|shiitake,16,30
+szczypiorek,Szczypiorek,ziola-i-kielki,raw,chives raw,cheese|cream|potato,20,40
+koperek,Koperek świeży,ziola-i-kielki,raw,dill weed fresh|dill raw,pickle|dried|seed,30,55
+pietruszka-natka,Natka pietruszki,ziola-i-kielki,raw,parsley fresh|parsley raw,root|dried,25,50
+bazylia-swieza,Bazylia świeża,ziola-i-kielki,raw,basil fresh|basil raw,pesto|dried,18,38
+mleko-15,"Mleko 1,5% tłuszczu",mleko,processed,milk semi-skimmed|milk lowfat 1%|milk reduced fat,chocolate|soy|almond|oat|powder|condensed,40,52
+mleko-2,Mleko 2% tłuszczu,mleko,processed,milk reduced fat 2%|milk semi-skimmed,chocolate|soy|almond|oat|powder|condensed,44,56
+mleko-32,"Mleko 3,2% tłuszczu",mleko,processed,milk whole 3.25%|whole milk,chocolate|soy|almond|oat|powder|condensed,56,68
+mleko-05,"Mleko 0,5% tłuszczu",mleko,processed,milk nonfat|skimmed milk,chocolate|powder|condensed,30,42
+maslanka,Maślanka naturalna,jogurty-i-kefiry,processed,buttermilk fluid cultured lowfat|buttermilk,biscuit|pancake|ranch|dressing,35,50
+kefir,Kefir naturalny,jogurty-i-kefiry,processed,kefir plain|kefir lowfat,fruit|strawberry,38,65
+jogurt-naturalny,Jogurt naturalny,jogurty-i-kefiry,processed,yogurt or fermented milk plain|yogurt plain whole milk|yogurt plain low fat,greek|fruit|vanilla|frozen|goat|ewe|sheep|soy|coconut,45,75
+jogurt-grecki,Jogurt grecki,jogurty-i-kefiry,processed,yogurt greek plain nonfat|yogurt greek plain whole milk|yogurt greek-style plain,fruit|honey|vanilla|frozen,55,140
+skyr,Skyr naturalny,jogurty-i-kefiry,processed,skyr|icelandic yogurt|quark plain 0% fat,fruit|vanilla|sugar,45,80
+smietana-12,Śmietana 12%,smietana,processed,sour cream light|cream light 12%,ice|whipped|imitation,120,155
+smietana-18,Śmietana 18%,smietana,processed,sour cream cultured|sour cream reduced fat|cream 15-20%,onion|dip|light|soup|fat free|imitation,165,210
+smietanka-30,Śmietanka 30%,smietana,processed,cream 30% fat liquid uht|cream fluid heavy whipping,ice|coffee|sour,280,350
+twarog-chudy,Twaróg chudy,sery-i-twarogi,processed,quark plain 0% fat|cottage cheese nonfat uncreamed,fruit|sugar|vanilla|ewe,45,105
+twarog-poltlusty,Twaróg półtłusty,sery-i-twarogi,processed,quark plain 2-3% fat|quark plain 7-8% fat,fruit|sugar|cake|ewe,70,145
+twarog-tlusty,Twaróg tłusty,sery-i-twarogi,processed,quark plain 7-8% fat|quark and whipped cream plain,cake|fruit|ewe,110,190
+serek-wiejski,Serek wiejski,sery-i-twarogi,processed,cheese cottage creamed|cottage cheese,fruit|pineapple|pie,80,115
+ser-gouda,Ser Gouda,sery-i-twarogi,processed,cheese gouda|gouda cheese,spread|sauce,325,380
+ser-edamski,Ser Edamski,sery-i-twarogi,processed,cheese edam|edam cheese,spread,310,370
+ser-cheddar,Ser Cheddar,sery-i-twarogi,processed,cheese cheddar|cheddar cheese,sauce|soup|cracker|macaroni|low fat,370,425
+mozzarella,Ser Mozzarella,sery-i-twarogi,processed,cheese mozzarella whole milk|mozzarella,pizza|stick|low moisture|part skim,220,310
+feta,Ser Feta,sery-i-twarogi,processed,cheese feta|feta cheese,salad|spinach,230,295
+camembert,Ser Camembert,sery-i-twarogi,processed,cheese camembert|camembert,fried|breaded,270,325
+parmezan,Ser Parmezan,sery-i-twarogi,processed,cheese parmesan hard|parmigiano,sauce|chicken|pasta,370,440
+mascarpone,Ser Mascarpone,sery-i-twarogi,processed,mascarpone,cake|tiramisu,350,450
+ricotta,Ser Ricotta,sery-i-twarogi,processed,cheese ricotta whole milk|ricotta,cake|pasta|spinach,140,190
+jajko-surowe,Jajo kurze surowe,jaja,raw,egg whole raw fresh|egg raw,dried|powder|duck|quail|goose|noodle|salad,130,160
+jajko-gotowane,Jajo kurze gotowane na twardo,jaja,cooked,egg whole cooked hard-boiled|egg hard-boiled,pickled|salad|deviled,135,165
+bialko-jaja,Białko jaja kurzego,jaja,raw,egg white raw fresh|egg white raw,dried|powder|whipped,40,60
+zoltko-jaja,Żółtko jaja kurzego,jaja,raw,egg yolk raw fresh|egg yolk raw,dried|salted|sugared,290,345
+maslo,Masło 82%,maslo-i-margaryny,processed,butter 80% fat minimum unsalted|butter without salt,peanut|apple|almond|cocoa|margarine|light|salted,700,765
+margaryna,Margaryna miękka,maslo-i-margaryny,processed,margarine regular|margarine spread,butter|cake|cookie,350,730
+smalec,Smalec wieprzowy,tluszcze-zwierzece,processed,lard|pork fat,cake|bread,850,910
+olej-rzepakowy,Olej rzepakowy,oleje,processed,oil canola|rapeseed oil,salad|mayonnaise,870,910
+olej-slonecznikowy,Olej słonecznikowy,oleje,processed,oil sunflower|sunflower oil,seed|butter|tuna,870,910
+oliwa,Oliwa z oliwek,oleje,processed,oil olive salad or cooking|olive oil extra virgin,tuna|sardine|mayonnaise,870,910
+olej-kokosowy,Olej kokosowy,oleje,processed,oil coconut|coconut oil,milk|water|flour|cream,870,910
+piers-kurczaka-surowa,Pierś z kurczaka surowa,drob,raw,chicken broilers or fryers breast meat only raw|chicken breast raw,skin|breaded|fried|cooked|nugget|patty|roast,95,130
+piers-kurczaka-gotowana,Pierś z kurczaka gotowana / pieczona,drob,cooked,chicken breast meat only cooked roasted|chicken breast cooked,skin|breaded|fried|nugget|salad|sauce,130,185
+udo-kurczaka-surowe,Udo z kurczaka bez skóry surowe,drob,raw,chicken broilers or fryers thigh meat only raw|chicken leg raw,cooked|fried|breaded,110,160
+piers-indyka-surowa,Pierś z indyka surowa,drob,raw,turkey breast meat only raw|turkey breast raw,deli|smoked|roast|cooked|ham,95,130
+schab-surowy,Schab wieprzowy surowy,mieso-czerwone,raw,pork fresh loin center loin chops boneless raw|pork loin raw,cooked|breaded|fried|ham|bacon,120,190
+karkowka-surowa,Karkówka wieprzowa surowa,mieso-czerwone,raw,pork fresh shoulder blade boston boneless raw|pork shoulder raw,cooked|roasted|smoked,170,260
+mieso-mielone-wieprzowe,Mięso mielone wieprzowe surowe,mieso-czerwone,raw,pork ground raw,cooked|sausage,220,300
+mieso-mielone-wolowe,Mięso mielone wołowe chude surowe,mieso-czerwone,raw,beef ground 90% lean meat raw|beef minced raw,cooked|burger|patty,150,230
+wolowina-udziec-surowa,Wołowina chuda (udziec/polędwica) surowa,mieso-czerwone,raw,beef tenderloin steak separable lean only raw|beef round raw,cooked|corned|dried|roast,110,190
+watrobka-drobiowa,Wątróbka drobiowa surowa,mieso-inne,raw,chicken liver all classes raw|poultry liver raw,cooked|fried|pate,110,145
+boczek-wedzony,Boczek wieprzowy wędzony,wedliny,processed,pork cured bacon unprepared|smoked bacon,cooked|turkey|bits,260,550
+szynka-gotowana,Szynka wieprzowa gotowana (wędlina),wedliny,processed,ham sliced regular|cooked ham,burger|pizza|salad|canned|soup,95,165
+kielbasa,Kiełbasa wieprzowa (śląska/zwyczajna),wedliny,processed,pork sausage fresh|smoked sausage pork,turkey|chicken|pizza|biscuit,220,340
+parowki,Parówki wieprzowo-drobiowe,wedliny,processed,frankfurter pork|frankfurter beef and pork,bun|cheese|chili,230,320
+kabanosy,Kabanosy,wedliny,processed,dry sausage pork|salami dry pork,pizza,350,480
+losos-surowy,Łosoś atlantycki surowy,ryby-swieze,raw,fish salmon atlantic farmed raw|salmon raw,smoked|canned|cooked|baked,140,230
+losos-wedzony,Łosoś wędzony,ryby-wedzone,processed,fish salmon chinook smoked|smoked salmon,cream cheese|bagel|pasta,110,200
+dorsz-surowy,Dorsz surowy,ryby-swieze,raw,fish cod atlantic raw|cod raw,cooked|dried|salted|breaded|liver,65,95
+tunczyk-w-wodzie,Tuńczyk w sosie własnym (puszka),konserwy-rybne,processed,fish tuna light canned in water drained|tuna canned in water,oil|salad|mayonnaise,85,130
+tunczyk-w-oleju,Tuńczyk w oleju (puszka),konserwy-rybne,processed,fish tuna light canned in oil drained|tuna canned in oil,salad|water,170,230
+makrela-wedzona,Makrela wędzona,ryby-wedzone,processed,smoked mackerel|mackerel smoked,canned|salad|paste,190,340
+sledz-w-oleju,Śledź w oleju,ryby-swieze,processed,herring in oil|herring atlantic pickled,raw|kippered,180,330
+pstrag-surowy,Pstrąg surowy,ryby-swieze,raw,fish trout rainbow farmed raw|trout raw,smoked|cooked,100,165
+mintaj-surowy,Mintaj surowy,ryby-swieze,raw,fish pollock alaska raw|pollock raw,breaded|cooked|sticks,60,95
+krewetki,Krewetki surowe,owoce-morza,raw,crustaceans shrimp raw|shrimp raw,breaded|fried|cooked|cocktail,65,110
+ryz-bialy-suchy,Ryż biały suchy,kasze-i-ryz,raw,rice white long-grain regular raw|white rice raw,cooked|brown|wild|pudding|flour|cake|milk,340,375
+ryz-bialy-gotowany,Ryż biały ugotowany,kasze-i-ryz,cooked,rice white long-grain regular cooked|white rice cooked,brown|fried|pudding|milk|soup,110,145
+ryz-brazowy-suchy,Ryż brązowy suchy,kasze-i-ryz,raw,rice brown long-grain raw|brown rice raw,cooked|flour|cake,345,380
+makaron-pszenny-suchy,Makaron pszenny suchy,makarony,raw,pasta dry enriched|pasta dry,cooked|whole|cheese|sauce|soup|salad,340,380
+makaron-pszenny-gotowany,Makaron pszenny ugotowany,makarony,cooked,pasta dry regular cooked no added salt|pasta cooked enriched,cheese|sauce|salad|whole|soup|egg|gluten-free,120,175
+makaron-pelnoziarnisty-suchy,Makaron pełnoziarnisty suchy,makarony,raw,pasta whole-wheat dry|whole wheat pasta dry,cooked|sauce,330,370
+kasza-gryczana-sucha,Kasza gryczana sucha,kasze-i-ryz,raw,buckwheat groats roasted dry|buckwheat,cooked|flour|honey|pancake,330,370
+kasza-jaglana-sucha,Kasza jaglana sucha,kasze-i-ryz,raw,millet raw|millet dry,cooked|flour|puffed,340,385
+kasza-jeczmienna-sucha,Kasza jęczmienna / pęczak suchy,kasze-i-ryz,raw,barley pearled raw|pearl barley raw,cooked|malt|soup|flour,330,370
+kasza-manna-sucha,Kasza manna sucha,kasze-i-ryz,raw,wheat semolina|semolina raw,cooked|pudding,340,375
+kuskus-suchy,Kuskus suchy,kasze-i-ryz,raw,couscous dry|couscous raw,cooked,340,385
+komosa-ryzowa-sucha,Komosa ryżowa (quinoa) sucha,kasze-i-ryz,raw,quinoa uncooked|quinoa raw,cooked|flour,350,385
+platki-owsiane,Płatki owsiane górskie,musli-i-owsianki,raw,oat flakes|oats raw|oats regular and quick dry,cooked|cookie|bar|bread|milk|instant|bran|biscuit,355,400
+platki-kukurydziane,Płatki kukurydziane,platki-sniadaniowe,processed,cereals ready-to-eat corn flakes|corn flakes,frosted|honey|bar|crumb,355,395
+maka-pszenna,Mąka pszenna typ 450/500,maki,raw,wheat flour white all-purpose enriched|white wheat flour,whole|self-rising|bread|cake|tortilla,335,375
+maka-pelnoziarnista,Mąka pszenna pełnoziarnista,maki,raw,wheat flour whole-grain|whole wheat flour,bread|pasta|tortilla,320,360
+maka-zytnia,Mąka żytnia,maki,raw,rye flour|rye flour dark,bread,320,360
+maka-ziemniaczana,Mąka / skrobia ziemniaczana,maki,raw,potato starch|potato flour,bread|chip,325,365
+chleb-pszenny,Chleb pszenny,pieczywo,processed,bread white commercially prepared|white bread,toast|stuffing|crumb|sweet|raisin|garlic,240,285
+chleb-zytni,Chleb żytni,pieczywo,processed,bread rye|rye bread,cracker|crispbread|pumpernickel,220,275
+chleb-pelnoziarnisty,Chleb pełnoziarnisty / graham,pieczywo,processed,bread whole-wheat commercially prepared|wholemeal bread,toast|cracker,220,270
+chleb-tostowy,Chleb tostowy pszenny,pieczywo,processed,bread white commercially prepared|toast bread,french toast|butter|cinnamon|rye|toasted|low sodium,245,295
+bulka-kajzerka,Bułka pszenna / kajzerka,pieczywo,processed,rolls hard kaiser|white roll|french roll,cinnamon|sausage|sweet|egg,260,315
+bagietka,Bagietka pszenna,pieczywo,processed,french bread|baguette,garlic|toast|butter,255,305
+bulka-tarta,Bułka tarta,bulka-tarta,processed,bread crumbs dry|breadcrumbs,seasoned|chicken|fish,350,410
+tortilla-pszenna,Tortilla pszenna,pieczywo,processed,tortillas ready-to-bake or -fry flour|wheat tortilla,corn|chip|taco,280,335
+wafle-ryzowe,Wafle ryżowe naturalne,pieczywo-chrupkie,processed,snacks rice cakes brown rice plain|rice cake,chocolate|caramel|cheese|apple,365,405
+orzechy-wloskie,Orzechy włoskie,orzechy,raw,nuts walnuts english|walnut,oil|pie|cake|cookie,630,690
+orzechy-laskowe,Orzechy laskowe,orzechy,raw,nuts hazelnuts or filberts|hazelnut,chocolate|spread|oil|paste,610,670
+migdaly,Migdały,orzechy,raw,nuts almonds|almond,milk|butter|flour|oil|chocolate|roasted,560,620
+orzechy-nerkowca,Orzechy nerkowca,orzechy,raw,nuts cashew nuts raw|cashew,butter|milk|roasted|salted,540,600
+orzechy-ziemne,Orzechy ziemne (arachidowe),orzechy,raw,peanuts all types raw|peanut,butter|oil|chocolate|salted|roasted,550,610
+pistacje,Pistacje,orzechy,raw,nuts pistachio nuts raw|pistachio,ice cream|pudding|roasted|salted,545,600
+maslo-orzechowe,Masło orzechowe 100%,kremy-dzemy-miody,processed,peanut butter smooth style without salt|peanut butter,cookie|cup|chocolate|jelly,570,630
+pestki-dyni,Pestki dyni,nasiona-i-pestki,raw,seeds pumpkin and squash seed kernels dried|pumpkin seed,salted|oil|bread,530,600
+pestki-slonecznika,Pestki słonecznika,nasiona-i-pestki,raw,seeds sunflower seed kernels dried|sunflower seed,oil|butter|salted,550,610
+siemie-lniane,Siemię lniane,nasiona-i-pestki,raw,seeds flaxseed|flax seed,oil|bread|cracker,490,560
+nasiona-chia,Nasiona chia,nasiona-i-pestki,raw,seeds chia seeds dried|chia seed,pudding|bar,460,520
+sezam,Sezam (ziarno),nasiona-i-pestki,raw,seeds sesame seeds whole dried|sesame seed,oil|paste|bread|bun,550,610
+wiorki-kokosowe,Wiórki kokosowe,dodatki-do-pieczenia,processed,coconut pulp dried|nuts coconut meat dried shredded,milk|water|oil|sweetened|biscuit,610,710
+fasola-biala-sucha,Fasola biała sucha,straczkowe,raw,beans white mature seeds raw|white bean dry,canned|cooked|soup|baked,310,355
+fasola-czerwona-puszka,Fasola czerwona konserwowa,straczkowe,processed,beans kidney red mature seeds canned|red kidney beans canned,chili|soup|salad,80,130
+ciecierzyca-sucha,Ciecierzyca sucha,straczkowe,raw,chickpeas mature seeds raw|chickpea dry,canned|cooked|hummus|flour,340,390
+ciecierzyca-puszka,Ciecierzyca konserwowa,straczkowe,processed,chickpeas canned|chickpeas mature seeds canned,hummus|salad,100,150
+soczewica-czerwona-sucha,Soczewica czerwona / zielona sucha,straczkowe,raw,lentils raw|lentil dry,cooked|soup|canned|sprout,320,370
+groch-suchy,Groch łuskany suchy,straczkowe,raw,peas green split mature seeds raw|split peas raw,cooked|soup|canned,320,375
+tofu,Tofu naturalne,zamienniki-roslinne,processed,tofu raw firm|tofu plain,fried|smoked|silken|soup,70,155
+hummus,Hummus klasyczny,hummus,processed,hummus commercial|hummus,chip|carrot|cracker,160,290
+napoj-sojowy,Napój sojowy naturalny,zamienniki-roslinne,processed,soymilk original and vanilla unfortified|soy drink plain,ice cream|yogurt|chocolate,30,55
+napoj-owsiany,Napój owsiany,zamienniki-roslinne,processed,oat milk|oat drink,chocolate|barista,35,60
+napoj-migdalowy,Napój migdałowy niesłodzony,zamienniki-roslinne,processed,almond milk unsweetened|almond drink,chocolate|vanilla,12,35
+cukier-bialy,Cukier biały,cukry-i-slodziki,processed,sugars granulated|white sugar,brown|powdered|syrup|cane,385,405
+miod,Miód pszczeli naturalny,kremy-dzemy-miody,processed,honey,mustard|nut|cereal|bread|butter|bar,295,335
+sol-kuchenna,Sól kuchenna,przyprawy,processed,salt table|table salt,butter|peanut|cracker|sauce|chip,0,5
+kakao-naturalne,Kakao naturalne w proszku,dodatki-do-pieczenia,processed,cocoa dry powder unsweetened|cocoa powder unsweetened,butter|mix|drink|milk|cake,210,390
+ketchup,Ketchup pomidorowy,sosy-i-ketchupy,processed,catsup|tomato ketchup,mustard|chip|burger,85,130
+majonez,Majonez tradycyjny,sosy-i-ketchupy,processed,salad dressing mayonnaise regular|mayonnaise,light|tuna|chicken|egg|potato,620,760
+musztarda,Musztarda stołowa,sosy-i-ketchupy,processed,mustard prepared yellow|mustard dijon,seed|honey|salad|pretzel,60,165
+passata-pomidorowa,Passata / przecier pomidorowy,sosy-i-ketchupy,processed,tomato products canned puree|tomato puree,paste|soup|ketchup|sauce,25,55
+koncentrat-pomidorowy,Koncentrat pomidorowy 30%,sosy-i-ketchupy,processed,tomato products canned paste|tomato paste,puree|sauce|soup,70,110
+ocet-jablkowy,Ocet jabłkowy / winny,sosy-i-ketchupy,processed,vinegar cider|cider vinegar,dressing|oil|chip,15,30
+sos-sojowy,Sos sojowy,sosy-i-ketchupy,processed,soy sauce made from soy|soy sauce,chicken|rice|noodle,40,85
+dzem-truskawkowy,Dżem truskawkowy,kremy-dzemy-miody,processed,jams and preserves|strawberry jam,donut|cookie|bread,180,280
+czekolada-gorzka,Czekolada gorzka 70%,czekolady,processed,candies chocolate dark 70-85% cacao|dark chocolate 70%,cake|cookie|milk|ice cream|syrup,520,620
+czekolada-mleczna,Czekolada mleczna,czekolady,processed,milk chocolate bar|candies milk chocolate,cake|cookie|almond|ice cream|syrup|dried fruits|nougat|filled|puffed|sweeteners,510,570
+woda-mineralna,Woda mineralna / źródlana,woda,processed,water bottled generic|still mineral water,coconut|tonic|lemon|soda|sparkling flavored,0,2
+kawa-parzona,Kawa czarna parzona (bez cukru),kawa-i-herbata,processed,beverages coffee brewed prepared with tap water|black coffee brewed,latte|milk|instant powder|cream|sugar,0,5
+herbata-czarna,Herbata czarna parzona (bez cukru),kawa-i-herbata,processed,beverages tea black brewed prepared with tap water|black tea brewed,iced|sweet|milk|lemon|green,0,5
+sok-pomaranczowy,Sok pomarańczowy 100%,soki-i-nektary,processed,orange juice raw|orange juice chilled|orange juice,concentrate|drink|soda,38,52
+sok-jablkowy,Sok jabłkowy 100%,soki-i-nektary,processed,apple juice canned or bottled unsweetened|apple juice,cider|pie|vinegar,38,52
+piwo-jasne,Piwo jasne (5% alk.),piwo,processed,alcoholic beverage beer regular all|beer lager,non-alcoholic|light|root|batter,36,52
+wino-czerwone-wytrawne,Wino czerwone wytrawne,wino-i-mocne,processed,alcoholic beverage wine table red|red wine,vinegar|sauce|cooking|sweet,65,90
+wino-biale-wytrawne,Wino białe wytrawne,wino-i-mocne,processed,alcoholic beverage wine table white|white wine,vinegar|sauce|cooking|sweet|kir|mackerel|mussels|fondue,65,90
