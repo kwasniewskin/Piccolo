@@ -98,10 +98,11 @@ public class DiaryController : ControllerBase
         }
         
         // Walidacja: jeśli ProductId jest podane, produkt musi istnieć
+        Product? product = null;
         if (dto.ProductId.HasValue)
         {
-            var productExists = await _context.Products.AnyAsync(p => p.Id == dto.ProductId.Value);
-            if (!productExists)
+            product = await _context.Products.FirstOrDefaultAsync(p => p.Id == dto.ProductId.Value);
+            if (product == null)
             {
                 return NotFound($"Produkt o ID {dto.ProductId.Value} nie został znaleziony.");
             }
@@ -122,7 +123,13 @@ public class DiaryController : ControllerBase
             CustomCalories = dto.CustomCalories,
             CustomProtein = dto.CustomProtein,
             CustomFat = dto.CustomFat,
-            CustomCarbs = dto.CustomCarbs
+            CustomCarbs = dto.CustomCarbs,
+            // Snapshot wartości z produktu w momencie dodania wpisu
+            ProductNameSnapshot = product?.Name,
+            KcalPer100gSnapshot = product != null ? (float)product.CaloriesPer100g : null,
+            ProteinPer100gSnapshot = product != null ? (float)product.ProteinPer100g : null,
+            FatPer100gSnapshot = product != null ? (float)product.FatPer100g : null,
+            CarbsPer100gSnapshot = product != null ? (float)product.CarbsPer100g : null
         };
 
         _context.DiaryEntries.Add(entry);

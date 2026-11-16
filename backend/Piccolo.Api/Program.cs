@@ -4,7 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Piccolo.Api.Data;
+using Piccolo.Api.Import;
 using Piccolo.Api.Services;
+
+if (args.Length >= 1 && args[0] == "import-catalog")
+{
+    return await CatalogImporter.RunAsync(args[1..]);
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -96,6 +102,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+return 0;
 
 // Make the implicit Program class public so test projects can access it
 public partial class Program { }
