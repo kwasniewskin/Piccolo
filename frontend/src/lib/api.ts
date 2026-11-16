@@ -258,6 +258,11 @@ export async function getDiaryEntries(date: string, targetUserId?: number): Prom
     }
 
     const data: ApiDiaryEntry[] = await response.json()
+    for (const item of data) {
+      if (item.product) {
+        productCache.set(item.product.id, toFrontendProduct(item.product))
+      }
+    }
     return data.map(toFrontendDiaryEntry)
   } catch (error) {
     console.error('[API] Network error during diary fetch:', error)

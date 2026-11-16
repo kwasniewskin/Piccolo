@@ -508,6 +508,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
             targetUserId={targetUserId}
             date={date}
             meal={meal!}
+            onAdd={onAdd}
             onClose={onClose}
             onQuickAddComplete={onQuickAddComplete}
             setToast={setToast}
@@ -534,6 +535,7 @@ type PortionFormProps = {
   targetUserId?: number
   date: string
   meal: MealType
+  onAdd: (meal: MealType, product: Product, amountInGrams: number, unitKey?: string, quantity?: number) => void
   onClose: () => void
   onQuickAddComplete?: () => void
   setToast: (msg: string | null) => void
@@ -546,6 +548,7 @@ function PortionForm({
   targetUserId,
   date,
   meal,
+  onAdd,
   onClose,
   onQuickAddComplete,
   setToast,
@@ -564,6 +567,8 @@ function PortionForm({
     
     return {
       label,
+      unitKey: row.unitKey,
+      quantity: row.quantity,
       grams: row.grams,
       kcal: macros.kcal,
     }
@@ -624,15 +629,8 @@ function PortionForm({
               grams={row.grams}
               kcal={row.kcal}
               onAdd={() => {
-                // Dodaj produkt od razu do dziennika
-                const grams = row.grams
                 ensureImported(async (importedProduct) => {
-                  await api.createDiaryEntry(date, meal!, grams, {
-                    productId: importedProduct.id,
-                    targetUserId,
-                  })
-                  onQuickAddComplete?.()
-                  onClose()
+                  await onAdd(meal, importedProduct, row.grams, row.unitKey, row.quantity)
                 }).catch((err) => {
                   console.error('Błąd dodawania:', err)
                   setToast('Błąd podczas dodawania')
@@ -649,14 +647,8 @@ function PortionForm({
             defaultQuantity={mostUsedDefaultQuantity}
             lang="pl"
             onAdd={(quantity, grams) => {
-              // Dodaj produkt od razu do dziennika
               ensureImported(async (importedProduct) => {
-                await api.createDiaryEntry(date, meal!, grams, {
-                  productId: importedProduct.id,
-                  targetUserId,
-                })
-                onQuickAddComplete?.()
-                onClose()
+                await onAdd(meal, importedProduct, grams, mostUsedUnitKey, quantity)
               }).catch((err) => {
                 console.error('Błąd dodawania:', err)
                 setToast('Błąd podczas dodawania')
@@ -669,14 +661,8 @@ function PortionForm({
             product={product}
             lang="pl"
             onAdd={(unitKey, quantity, grams) => {
-              // Dodaj produkt od razu do dziennika
               ensureImported(async (importedProduct) => {
-                await api.createDiaryEntry(date, meal!, grams, {
-                  productId: importedProduct.id,
-                  targetUserId,
-                })
-                onQuickAddComplete?.()
-                onClose()
+                await onAdd(meal, importedProduct, grams, unitKey, quantity)
               }).catch((err) => {
                 console.error('Błąd dodawania:', err)
                 setToast('Błąd podczas dodawania')

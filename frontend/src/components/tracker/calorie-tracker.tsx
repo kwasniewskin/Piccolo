@@ -319,6 +319,7 @@ export function CalorieTracker() {
         onQuickAddComplete={async () => {
           // Odśwież dane z serwera po dodaniu szybkiego wpisu
           const fresh = await api.getDiaryEntries(activeDate, activeUserId)
+          dispatch({ type: 'set-products', products: api.getCachedProducts() })
           dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
         }}
       />
