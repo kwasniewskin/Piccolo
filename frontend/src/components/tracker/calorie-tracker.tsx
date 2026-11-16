@@ -206,7 +206,13 @@ export function CalorieTracker() {
     loadDayEntries()
   }, [activeDate, activeUserId])
 
-  async function handleAdd(meal: MealType, product: Product, amountInGrams: number) {
+  async function handleAdd(
+    meal: MealType,
+    product: Product,
+    amountInGrams: number,
+    unitKey?: string,
+    quantity?: number
+  ) {
     // Dodaj produkt do cache jeśli go tam nie ma
     api.cacheProducts([product])
     
@@ -214,6 +220,8 @@ export function CalorieTracker() {
     const entry = await api.createDiaryEntry(activeDate, meal, amountInGrams, { 
       productId: product.id,
       targetUserId: activeUserId,
+      unitKey,
+      unitQuantity: quantity,
     })
     
     // Zawsze zamknij modal, niezależnie od wyniku
@@ -311,6 +319,7 @@ export function CalorieTracker() {
         onQuickAddComplete={async () => {
           // Odśwież dane z serwera po dodaniu szybkiego wpisu
           const fresh = await api.getDiaryEntries(activeDate, activeUserId)
+          dispatch({ type: 'set-products', products: api.getCachedProducts() })
           dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
         }}
       />

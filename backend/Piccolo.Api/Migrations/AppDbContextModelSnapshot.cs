@@ -53,6 +53,12 @@ namespace Piccolo.Api.Migrations
                     b.Property<int?>("ProductId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("UnitKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double?>("UnitQuantity")
+                        .HasColumnType("REAL");
+
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
 
@@ -68,7 +74,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("UserId", "Date");
 
-                    b.ToTable("DiaryEntries", (string)null);
+                    b.ToTable("DiaryEntries");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.PairingCode", b =>
@@ -108,7 +114,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("Code", "IsUsed", "ExpiresAt");
 
-                    b.ToTable("PairingCodes", (string)null);
+                    b.ToTable("PairingCodes");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
@@ -175,7 +181,32 @@ namespace Piccolo.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("Piccolo.Api.Models.ProductUnit", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<float>("GramsPerUnit")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UnitKey")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductId", "UnitKey");
+
+                    b.ToTable("ProductUnits");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.User", b =>
@@ -217,7 +248,7 @@ namespace Piccolo.Api.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.UserConnection", b =>
@@ -256,7 +287,7 @@ namespace Piccolo.Api.Migrations
                     b.HasIndex("User1Id", "User2Id")
                         .IsUnique();
 
-                    b.ToTable("UserConnections", (string)null);
+                    b.ToTable("UserConnections");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.DiaryEntry", b =>
@@ -288,6 +319,17 @@ namespace Piccolo.Api.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
+            modelBuilder.Entity("Piccolo.Api.Models.ProductUnit", b =>
+                {
+                    b.HasOne("Piccolo.Api.Models.Product", "Product")
+                        .WithMany("Units")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("Piccolo.Api.Models.UserConnection", b =>
                 {
                     b.HasOne("Piccolo.Api.Models.User", "User1")
@@ -310,6 +352,8 @@ namespace Piccolo.Api.Migrations
             modelBuilder.Entity("Piccolo.Api.Models.Product", b =>
                 {
                     b.Navigation("DiaryEntries");
+
+                    b.Navigation("Units");
                 });
 
             modelBuilder.Entity("Piccolo.Api.Models.User", b =>

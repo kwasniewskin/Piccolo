@@ -40,6 +40,7 @@ export interface ProductFormData {
   packageWeight: string | number;
   defaultServing: string | number;
   ingredients?: string;
+  units?: Array<{ unitKey: string; gramsPerUnit: number }>;
 }
 
 function ProductFormContent({
@@ -68,6 +69,7 @@ function ProductFormContent({
     packageWeight: initialData?.packageWeight || '',
     defaultServing: initialData?.defaultServing || '',
     ingredients: '',
+    units: [],
   });
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -260,6 +262,7 @@ function ProductFormContent({
         defaultServingGrams: Number(formData.defaultServing),
         dataSource: 'User',
         imageUrl: null,
+        units: formData.units?.filter(u => u.unitKey.trim() && u.gramsPerUnit > 0) || [],
       };
 
       let response;
@@ -317,6 +320,7 @@ function ProductFormContent({
         packageWeight: '',
         defaultServing: '',
         ingredients: '',
+        units: [],
       });
 
       // Wyczyść podgląd obrazu i istniejący produkt
@@ -702,6 +706,71 @@ function ProductFormContent({
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Jednostki miary */}
+        <div className="pt-4">
+          <h3 className="mb-4 text-xl font-semibold text-foreground">
+            Jednostki miary
+          </h3>
+          <p className="mb-3 text-sm text-muted-foreground">
+            Określ dodatkowe jednostki dla tego produktu (np. plaster, sztuka, łyżka).
+          </p>
+          
+          <div className="space-y-3">
+            {formData.units?.map((unit, index) => (
+              <div key={index} className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  value={unit.unitKey}
+                  onChange={(e) => {
+                    const newUnits = [...(formData.units || [])]
+                    newUnits[index].unitKey = e.target.value
+                    setFormData({ ...formData, units: newUnits })
+                  }}
+                  placeholder="Nazwa jednostki (np. plaster)"
+                  className="flex-1 rounded-2xl border border-border bg-card px-4 py-2 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <span className="text-muted-foreground">=</span>
+                <input
+                  type="number"
+                  value={unit.gramsPerUnit}
+                  onChange={(e) => {
+                    const newUnits = [...(formData.units || [])]
+                    newUnits[index].gramsPerUnit = parseFloat(e.target.value) || 0
+                    setFormData({ ...formData, units: newUnits })
+                  }}
+                  min="0"
+                  step="0.1"
+                  placeholder="0"
+                  className="w-24 rounded-2xl border border-border bg-card px-4 py-2 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <span className="text-muted-foreground">g</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newUnits = formData.units?.filter((_, i) => i !== index) || []
+                    setFormData({ ...formData, units: newUnits })
+                  }}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  aria-label="Usuń jednostkę"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            
+            <button
+              type="button"
+              onClick={() => {
+                const newUnits = [...(formData.units || []), { unitKey: '', gramsPerUnit: 0 }]
+                setFormData({ ...formData, units: newUnits })
+              }}
+              className="w-full rounded-2xl border border-dashed border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            >
+              + Dodaj jednostkę
+            </button>
           </div>
         </div>
 

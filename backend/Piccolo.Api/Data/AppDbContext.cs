@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     
     public DbSet<UserConnection> UserConnections => Set<UserConnection>();
     
+    public DbSet<ProductUnit> ProductUnits => Set<ProductUnit>();
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -85,6 +87,19 @@ public class AppDbContext : DbContext
             entity.HasIndex(d => d.UserId);
             entity.HasIndex(d => d.CreatedByUserId);
             entity.HasIndex(d => new { d.UserId, d.Date }); // Composite index dla najczęstszego query
+        });
+        
+        // Konfiguracja relacji Product -> ProductUnit (1:N)
+        modelBuilder.Entity<ProductUnit>(entity =>
+        {
+            entity.HasOne(u => u.Product)
+                .WithMany(p => p.Units)
+                .HasForeignKey(u => u.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // Kaskadowe usuwanie jednostek przy usunięciu produktu
+            
+            // Indeksy
+            entity.HasIndex(u => u.ProductId);
+            entity.HasIndex(u => new { u.ProductId, u.UnitKey }); // Composite index dla wyszukiwania jednostek produktu
         });
     }
 }

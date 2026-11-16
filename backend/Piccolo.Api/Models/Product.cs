@@ -44,6 +44,7 @@ public class Product
     
     public string? ImageUrl { get; set; }
     
-    // Navigation property - relacja 1:N do DiaryEntry
+    // Navigation properties
     public ICollection<DiaryEntry> DiaryEntries { get; set; } = new List<DiaryEntry>();
+    public ICollection<ProductUnit> Units { get; set; } = new List<ProductUnit>();
 }

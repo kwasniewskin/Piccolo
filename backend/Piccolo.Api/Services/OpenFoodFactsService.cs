@@ -112,9 +112,39 @@ public class OpenFoodFactsService
             SugarsPer100g = offProduct.Nutriments?.Sugars100g,
             FiberPer100g = offProduct.Nutriments?.Fiber100g,
             SaltPer100g = offProduct.Nutriments?.Salt100g,
-            PackageWeightGrams = offProduct.ProductQuantity,
+            PackageWeightGrams = offProduct.ProductQuantity is > 0 ? offProduct.ProductQuantity : null,
+            DefaultServingGrams = offProduct.ServingQuantity is > 0 ? offProduct.ServingQuantity : null,
             DataSource = "OpenFoodFacts"
         };
+    }
+
+    /// <summary>
+    /// OFF zwraca pola ilości raz jako liczbę (250), raz jako tekst ("250" lub "16,7").
+    /// Ten konwerter akceptuje oba warianty; nieparsowalne wartości dają null.
+    /// </summary>
+    private class FlexibleFloatConverter : JsonConverter<float?>
+    {
+        public override float? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.Number:
+                    return reader.TryGetSingle(out var number) ? number : null;
+                case JsonTokenType.String:
+                    var text = reader.GetString()?.Trim().Replace(',', '.');
+                    return float.TryParse(text, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+                default:
+                    reader.Skip();
+                    return null;
+            }
+        }
+
+        public override void Write(Utf8JsonWriter writer, float? value, JsonSerializerOptions options)
+        {
+            if (value.HasValue) writer.WriteNumberValue(value.Value);
+            else writer.WriteNullValue();
+        }
     }
 
     #region DTO Classes for Open Food Facts API
@@ -146,7 +176,12 @@ public class OpenFoodFactsService
         public string? ImageUrl { get; set; }
 
         [JsonPropertyName("product_quantity")]
+        [JsonConverter(typeof(FlexibleFloatConverter))]
         public float? ProductQuantity { get; set; }
+
+        [JsonPropertyName("serving_quantity")]
+        [JsonConverter(typeof(FlexibleFloatConverter))]
+        public float? ServingQuantity { get; set; }
 
         [JsonPropertyName("nutriments")]
         public OffNutriments? Nutriments { get; set; }

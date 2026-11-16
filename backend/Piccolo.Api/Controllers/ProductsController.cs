@@ -32,7 +32,7 @@ public class ProductsController : ControllerBase
         var results = new List<Product>();
 
         // 1. Pobierz wyniki z lokalnej bazy (mają Id)
-        IQueryable<Product> localQuery = _context.Products;
+        IQueryable<Product> localQuery = _context.Products.Include(p => p.Units);
         
         if (!string.IsNullOrWhiteSpace(name))
         {
@@ -74,6 +74,7 @@ public class ProductsController : ControllerBase
     {
         // 1. Sprawdź lokalną bazę
         var localProduct = await _context.Products
+            .Include(p => p.Units)
             .FirstOrDefaultAsync(p => p.Barcode == barcode);
 
         if (localProduct != null)
@@ -99,10 +100,17 @@ public class ProductsController : ControllerBase
     [HttpPost("import")]
     public async Task<ActionResult<Product>> Import([FromBody] Product product)
     {
+        var unitError = ValidateUnits(product.Units);
+        if (unitError != null)
+        {
+            return BadRequest(new { message = unitError });
+        }
+
         // Sprawdź czy produkt z tym kodem kreskowym już istnieje
         if (!string.IsNullOrWhiteSpace(product.Barcode))
         {
             var existing = await _context.Products
+                .Include(p => p.Units)
                 .FirstOrDefaultAsync(p => p.Barcode == product.Barcode);
 
             if (existing != null)
@@ -110,6 +118,8 @@ public class ProductsController : ControllerBase
                 return Conflict(new { message = "Product with this barcode already exists", existingProduct = existing });
             }
         }
+
+        NormalizeUnitsForInsert(product);
 
         // Zapisz produkt
         _context.Products.Add(product);
@@ -126,6 +136,14 @@ public class ProductsController : ControllerBase
     [AllowAnonymous] // Produkty są globalne - seedowanie musi działać bez autoryzacji
     public async Task<ActionResult<Product>> Create([FromBody] Product product)
     {
+        var unitError = ValidateUnits(product.Units);
+        if (unitError != null)
+        {
+            return BadRequest(new { message = unitError });
+        }
+
+        NormalizeUnitsForInsert(product);
+
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
@@ -139,7 +157,9 @@ public class ProductsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Product>> GetById(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await _context.Products
+            .Include(p => p.Units)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (product == null)
         {
@@ -151,12 +171,21 @@ public class ProductsController : ControllerBase
 
     /// <summary>
     /// Aktualizuje istniejący produkt w bazie danych.
+    /// Lista jednostek (Units) jest zastępowana w całości tym, co przyszło w żądaniu.
     /// PUT /api/products/{id}
     /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult<Product>> Update(int id, [FromBody] Product product)
     {
-        var existingProduct = await _context.Products.FindAsync(id);
+        var unitError = ValidateUnits(product.Units);
+        if (unitError != null)
+        {
+            return BadRequest(new { message = unitError });
+        }
+
+        var existingProduct = await _context.Products
+            .Include(p => p.Units)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (existingProduct == null)
         {
@@ -179,9 +208,54 @@ public class ProductsController : ControllerBase
         existingProduct.DefaultServingGrams = product.DefaultServingGrams;
         existingProduct.Ingredients = product.Ingredients;
 
+        // Zastąp listę jednostek: usuń stare, dodaj nowe
+        _context.ProductUnits.RemoveRange(existingProduct.Units);
+        existingProduct.Units = (product.Units ?? new List<ProductUnit>())
+            .Select(u => new ProductUnit { UnitKey = u.UnitKey, GramsPerUnit = u.GramsPerUnit, ProductId = existingProduct.Id })
+            .ToList();
+
         await _context.SaveChangesAsync();
 
         return Ok(existingProduct);
+    }
+
+    /// <summary>
+    /// Waliduje jednostki produktu: niepusta nazwa, waga > 0, brak duplikatów.
+    /// Zwraca komunikat błędu albo null, gdy wszystko jest poprawne.
+    /// </summary>
+    private static string? ValidateUnits(ICollection<ProductUnit>? units)
+    {
+        if (units == null || units.Count == 0) return null;
+
+        foreach (var unit in units)
+        {
+            if (string.IsNullOrWhiteSpace(unit.UnitKey))
+            {
+                return "Nazwa jednostki nie może być pusta.";
+            }
+            if (!(unit.GramsPerUnit > 0) || unit.GramsPerUnit > 5000)
+            {
+                return $"Waga jednostki '{unit.UnitKey}' musi być większa od 0 i nie większa niż 5000 g.";
+            }
+        }
+
+        var duplicate = units.GroupBy(u => u.UnitKey).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate != null)
+        {
+            return $"Jednostka '{duplicate.Key}' została podana więcej niż raz.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Czyści Id/ProductId przysłane przez klienta, żeby EF utworzył nowe rekordy jednostek.
+    /// </summary>
+    private static void NormalizeUnitsForInsert(Product product)
+    {
+        product.Units = (product.Units ?? new List<ProductUnit>())
+            .Select(u => new ProductUnit { UnitKey = u.UnitKey, GramsPerUnit = u.GramsPerUnit })
+            .ToList();
     }
 
     /// <summary>

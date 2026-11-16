@@ -26,6 +26,18 @@ public class DiaryEntry
     public double? AmountInGrams { get; set; }
     
     /// <summary>
+    /// Klucz jednostki użytej przy dodawaniu (np. "portion", "slice", "g").
+    /// Null dla starych wpisów i szybkich wpisów.
+    /// </summary>
+    public string? UnitKey { get; set; }
+    
+    /// <summary>
+    /// Ilość w jednostce (np. 3 dla "3 × porcja").
+    /// Null dla starych wpisów i szybkich wpisów.
+    /// </summary>
+    public double? UnitQuantity { get; set; }
+    
+    /// <summary>
     /// ID użytkownika, którego dotyczy wpis.
     /// </summary>
     public int UserId { get; set; }
