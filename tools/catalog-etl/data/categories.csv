@@ -1,0 +1,84 @@
+slug,name_pl,parent_slug
+warzywa-i-grzyby,Warzywa i grzyby,
+warzywa-swieze,Warzywa świeże,warzywa-i-grzyby
+ziola-i-kielki,Zioła i kiełki,warzywa-i-grzyby
+mrozonki-warzywne,Mrożonki warzywne i owocowe,warzywa-i-grzyby
+grzyby,Grzyby,warzywa-i-grzyby
+konserwy-warzywne,Konserwy warzywne i owocowe,warzywa-i-grzyby
+owoce,Owoce,
+owoce-swieze,Owoce świeże,owoce
+owoce-suszone,Owoce suszone,owoce
+owoce-przetworzone,Owoce w syropie i musy,owoce
+nabial-i-jaja,Nabiał i jaja,
+mleko,Mleko i napoje mleczne,nabial-i-jaja
+smietana,Śmietana i śmietanka,nabial-i-jaja
+jogurty-i-kefiry,Jogurty i kefiry,nabial-i-jaja
+jaja,Jaja,nabial-i-jaja
+sery-i-twarogi,Sery i twarogi,nabial-i-jaja
+desery-mleczne,Desery mleczne,nabial-i-jaja
+mieso-i-wedliny,Mięso i wędliny,
+drob,Drób,mieso-i-wedliny
+mieso-czerwone,Mięso czerwone,mieso-i-wedliny
+wedliny,Wędliny,mieso-i-wedliny
+mieso-inne,Mięso – inne i podroby,mieso-i-wedliny
+konserwy-miesne,Konserwy mięsne,mieso-i-wedliny
+pasty-kanapkowe,Pasty kanapkowe,mieso-i-wedliny
+ryby-i-owoce-morza,Ryby i owoce morza,
+ryby-swieze,Ryby świeże i mrożone,ryby-i-owoce-morza
+owoce-morza,Owoce morza,ryby-i-owoce-morza
+konserwy-rybne,Konserwy rybne,ryby-i-owoce-morza
+ryby-wedzone,Ryby wędzone,ryby-i-owoce-morza
+ryby-panierowane,Ryby panierowane i paluszki,ryby-i-owoce-morza
+pieczywo-i-zboza,Pieczywo i produkty zbożowe,
+pieczywo,Pieczywo,pieczywo-i-zboza
+pieczywo-chrupkie,Pieczywo chrupkie i wafle,pieczywo-i-zboza
+bulka-tarta,Bułka tarta i inne,pieczywo-i-zboza
+platki-sniadaniowe,Płatki śniadaniowe,pieczywo-i-zboza
+musli-i-owsianki,Musli i owsianki,pieczywo-i-zboza
+otreby,Otręby,pieczywo-i-zboza
+makarony,Makarony,pieczywo-i-zboza
+kasze-i-ryz,Kasze i ryż,pieczywo-i-zboza
+maki,Mąki i skrobie,pieczywo-i-zboza
+tluszcze-orzechy-nasiona,Tłuszcze orzechy i nasiona,
+orzechy,Orzechy,tluszcze-orzechy-nasiona
+nasiona-i-pestki,Nasiona i pestki,tluszcze-orzechy-nasiona
+maslo-i-margaryny,Masło i margaryny,tluszcze-orzechy-nasiona
+tluszcze-zwierzece,Tłuszcze zwierzęce,tluszcze-orzechy-nasiona
+oleje,Oleje roślinne,tluszcze-orzechy-nasiona
+straczkowe-i-roslinne,Strączkowe i roślinne,
+straczkowe,Rośliny strączkowe,straczkowe-i-roslinne
+zamienniki-roslinne,Zamienniki roślinne i tofu,straczkowe-i-roslinne
+hummus,Hummus i pasty roślinne,straczkowe-i-roslinne
+slodycze-i-przekaski,Słodycze i przekąski,
+ciastka,Ciastka i herbatniki,slodycze-i-przekaski
+chipsy-i-chrupki,Chipsy i chrupki,slodycze-i-przekaski
+przekaski-slone,Przekąski słone,slodycze-i-przekaski
+czekolady,Czekolady,slodycze-i-przekaski
+batony-i-wafelki,Batony i wafelki,slodycze-i-przekaski
+cukierki-i-zelki,Cukierki i żelki,slodycze-i-przekaski
+bakalie-w-czekoladzie,Bakalie w czekoladzie,slodycze-i-przekaski
+ciasta-i-torty,Ciasta i wypieki cukiernicze,slodycze-i-przekaski
+lody,Lody i sorbety,slodycze-i-przekaski
+kremy-dzemy-miody,Kremy dżemy i miody,slodycze-i-przekaski
+desery-w-proszku,Kisiele budynie i syropy,slodycze-i-przekaski
+napoje-bezalkoholowe,Napoje bezalkoholowe,
+woda,Woda,napoje-bezalkoholowe
+soki-i-nektary,Soki i nektary,napoje-bezalkoholowe
+napoje-slodzone,Napoje gazowane i niegazowane,napoje-bezalkoholowe
+energetyki-i-izotoniki,Energetyki i izotoniki,napoje-bezalkoholowe
+kawa-i-herbata,Kawa i herbata,napoje-bezalkoholowe
+alkohol,Alkohol,
+piwo,Piwo,alkohol
+wino-i-mocne,Wino i alkohole mocne,alkohol
+dania-gotowe,Dania gotowe i fast food,
+dania-mrozone,Dania mrożone,dania-gotowe
+dania-obiadowe,Dania gotowe i zupy,dania-gotowe
+salatki-i-surowki,Sałatki i surówki,dania-gotowe
+fast-food,Fast food i restauracje,dania-gotowe
+sosy-i-przyprawy,Sosy przyprawy i dodatki,
+przyprawy,Przyprawy i zioła suszone,sosy-i-przyprawy
+sosy-i-ketchupy,Sosy ketchupy majonezy i octy,sosy-i-przyprawy
+cukry-i-slodziki,Cukry i słodziki,sosy-i-przyprawy
+dodatki-do-pieczenia,Dodatki do pieczenia,sosy-i-przyprawy
+zywnosc-dla-dzieci,Żywność dla dzieci,
+suplementy-i-sport,Suplementy i odżywki,
