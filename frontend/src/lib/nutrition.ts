@@ -1,5 +1,5 @@
 import type { DiaryEntry, DiaryEntryView, Macros, MealType, Product } from './types'
-import { getMealLabel, type Language } from './i18n'
+import { getMealLabel, getUnitLabel, type Language } from './i18n'
 
 /** Pory posiłków w kolejności wyświetlania (z obsługą i18n). */
 export function getMeals(lang: Language): { id: MealType; label: string }[] {
@@ -113,10 +113,7 @@ export function toEntryView(entry: DiaryEntry, products: Product[]): DiaryEntryV
       displayLabel = grams
     } else {
       // Dla innych jednostek: "3 × porcja (50 g)"
-      // getUnitLabel to funkcja z i18n.ts – używamy tu prostej wersji
-      const unitName = entry.unitKey === 'portion' ? 'porcja'
-        : entry.unitKey === 'package' ? 'opakowanie'
-        : entry.unitKey
+      const unitName = getUnitLabel('pl', entry.unitKey)
       displayLabel = `${formattedQty} × ${unitName} (${grams})`
     }
   }

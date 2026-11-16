@@ -54,6 +54,13 @@ public class DiaryEntry
     public float? CustomProtein { get; set; }
     public float? CustomFat { get; set; }
     public float? CustomCarbs { get; set; }
+
+    // Snapshot wartości na 100g w momencie dodania wpisu (odporność na zmiany katalogu)
+    public string? ProductNameSnapshot { get; set; }
+    public float? KcalPer100gSnapshot { get; set; }
+    public float? ProteinPer100gSnapshot { get; set; }
+    public float? FatPer100gSnapshot { get; set; }
+    public float? CarbsPer100gSnapshot { get; set; }
     
     // Navigation properties
     public Product? Product { get; set; }
