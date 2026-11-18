@@ -40,6 +40,52 @@ public class ProductsControllerTests : IClassFixture<CustomWebApplicationFactory
         createdProduct.Barcode.Should().Be("1234567890123");
     }
 
+    [Fact]
+    public async Task CreateProduct_WithExtendedAiLabelPayload_PersistsAllFieldsAndIsSearchable()
+    {
+        // Arrange
+        var uniqueSuffix = Guid.NewGuid().ToString("N")[..8];
+        var payload = new
+        {
+            name = $"Serek Proteinowy AI {uniqueSuffix}",
+            brand = (string?)null,
+            manufacturer = "Piątnica",
+            barcode = $"590999{uniqueSuffix[..6]}",
+            ingredients = "twaróg odtłuszczony, białka mleka",
+            caloriesPer100g = 128.0,
+            proteinPer100g = 15.5,
+            fatPer100g = 5.5,
+            carbsPer100g = 4.2,
+            saturatedFatPer100g = 3.4f,
+            sugarsPer100g = 3.1f,
+            fiberPer100g = 0.0f,
+            saltPer100g = 0.8f,
+            packageWeightGrams = 135.0f,
+            defaultServingGrams = 50.0f,
+            dataSource = "User"
+        };
+
+        // Act
+        var createResponse = await _client.PostAsJsonAsync("/api/products", payload);
+
+        // Assert
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResponse.Content.ReadFromJsonAsync<Product>();
+        created.Should().NotBeNull();
+        created!.Manufacturer.Should().Be("Piątnica");
+        created.Ingredients.Should().Be("twaróg odtłuszczony, białka mleka");
+        created.SaturatedFatPer100g.Should().Be(3.4f);
+        created.SugarsPer100g.Should().Be(3.1f);
+        created.SaltPer100g.Should().Be(0.8f);
+        created.PackageWeightGrams.Should().Be(135.0f);
+        created.DataSource.Should().Be("User");
+
+        var searchResponse = await _client.GetAsync($"/api/products/search?name={Uri.EscapeDataString(uniqueSuffix)}");
+        searchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var searchResults = await searchResponse.Content.ReadFromJsonAsync<List<Product>>();
+        searchResults.Should().ContainSingle(p => p.Id == created.Id);
+    }
+
     #endregion
 
     #region GET /api/products/{id} - Get Product Tests

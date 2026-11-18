@@ -344,5 +344,97 @@ public class DiaryControllerTests : IClassFixture<CustomWebApplicationFactory>
         TestAuthHandler.SwitchToUser1();
     }
 
+    [Fact]
+    public async Task CreateDiaryEntry_CustomAiMealForMultipleDays_CreatesDistinctDayEntries()
+    {
+        // Arrange
+        TestAuthHandler.SwitchToUser1();
+        var today = "2026-11-18";
+        var tomorrow = "2026-11-19";
+
+        var todayDto = new CreateDiaryEntryDto
+        {
+            Date = DateOnly.Parse(today),
+            MealType = MealType.Lunch,
+            AmountInGrams = 0,
+            CustomName = "Kurczak curry (1 porcja)",
+            CustomCalories = 485,
+            CustomProtein = 38.5f,
+            CustomFat = 14.2f,
+            CustomCarbs = 50.8f
+        };
+        var tomorrowDto = new CreateDiaryEntryDto
+        {
+            Date = DateOnly.Parse(tomorrow),
+            MealType = MealType.Lunch,
+            AmountInGrams = 0,
+            CustomName = "Kurczak curry (1 porcja)",
+            CustomCalories = 485,
+            CustomProtein = 38.5f,
+            CustomFat = 14.2f,
+            CustomCarbs = 50.8f
+        };
+
+        // Act
+        var r1 = await _client.PostAsJsonAsync("/api/diary", todayDto, _jsonOptions);
+        var r2 = await _client.PostAsJsonAsync("/api/diary", tomorrowDto, _jsonOptions);
+
+        // Assert
+        r1.StatusCode.Should().Be(HttpStatusCode.Created);
+        r2.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var todayEntries = await (await _client.GetAsync($"/api/diary?date={today}")).Content.ReadFromJsonAsync<List<DiaryEntry>>(_jsonOptions);
+        var tomorrowEntries = await (await _client.GetAsync($"/api/diary?date={tomorrow}")).Content.ReadFromJsonAsync<List<DiaryEntry>>(_jsonOptions);
+
+        todayEntries.Should().Contain(e => e.CustomName == "Kurczak curry (1 porcja)" && e.CustomCalories == 485);
+        tomorrowEntries.Should().Contain(e => e.CustomName == "Kurczak curry (1 porcja)" && e.CustomCalories == 485);
+    }
+
+    [Fact]
+    public async Task CreateDiaryEntry_ForConnectedPartner_SavesToPartnerDiaryWithCreatedByUser()
+    {
+        // Arrange - pair User 1 and User 2
+        TestAuthHandler.SwitchToUser1();
+        var codeResp = await _client.PostAsync("/api/partner/generate-code", null);
+        codeResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var codeObj = await codeResp.Content.ReadFromJsonAsync<GeneratePairingCodeResponse>(_jsonOptions);
+
+        TestAuthHandler.SwitchToUser2();
+        var acceptResp = await _client.PostAsJsonAsync("/api/partner/accept-code", new AcceptPairingCodeRequest { Code = codeObj!.Code }, _jsonOptions);
+        acceptResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act - User 1 logs AI meal entry directly into Partner (User 2) diary
+        TestAuthHandler.SwitchToUser1();
+        var partnerEntryDto = new CreateDiaryEntryDto
+        {
+            Date = DateOnly.Parse("2026-11-20"),
+            MealType = MealType.SecondBreakfast,
+            TargetUserId = 2,
+            AmountInGrams = 0,
+            CustomName = "Kanapki i twaróg (W)",
+            CustomCalories = 418,
+            CustomProtein = 24.5f,
+            CustomFat = 12.1f,
+            CustomCarbs = 51.0f
+        };
+        var createResp = await _client.PostAsJsonAsync("/api/diary", partnerEntryDto, _jsonOptions);
+
+        // Assert
+        createResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResp.Content.ReadFromJsonAsync<DiaryEntry>(_jsonOptions);
+        created!.UserId.Should().Be(2);
+        created.CreatedByUserId.Should().Be(1);
+        created.CustomName.Should().Be("Kanapki i twaróg (W)");
+
+        var partnerListResp = await _client.GetAsync("/api/diary?date=2026-11-20&targetUserId=2");
+        partnerListResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var partnerEntries = await partnerListResp.Content.ReadFromJsonAsync<List<DiaryEntry>>(_jsonOptions);
+        partnerEntries.Should().Contain(e => e.Id == created.Id && e.UserId == 2 && e.CreatedByUserId == 1);
+
+        // Cleanup - disconnect pairing and restore User 1
+        await _client.DeleteAsync("/api/partner/disconnect");
+        TestAuthHandler.SwitchToUser1();
+    }
+
     #endregion
 }
