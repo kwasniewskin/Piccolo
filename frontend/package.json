@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "build": "next build",
     "start": "next start"
   },
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19",
     "postcss": "^8.5",
     "tailwindcss": "^4.3.3",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "vitest": "^5.1.1"
   }
 }
