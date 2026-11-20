@@ -9,34 +9,37 @@ import type { Macros, MealType, Product } from '@/lib/types'
 import * as api from '@/lib/api'
 import { MacroCircle } from './macro-circle'
 import { BarcodeScanner } from './barcode-scanner'
-import { getUnitLabel, type Language } from '@/lib/i18n'
+import { getMealLabel, getTranslation, getUnitLabel, type Language } from '@/lib/i18n'
+import { useOptionalLanguage } from '@/lib/language-context'
 import { FixedUnitCalculatorRow, QuickServingRow, UnitSelectCalculatorRow } from './serving-rows'
 import { AiMealAssistant } from './ai-meal-assistant'
 
-// Słownik tłumaczeń nazw posiłków (dopełniacz)
-const mealTranslations: Record<string, string> = {
-  'Breakfast': 'Śniadania',
-  'Second breakfast': 'Drugiego śniadania',
-  'Lunch': 'Obiadu',
-  'Snack': 'Przekąsek',
-  'Dinner': 'Kolacji'
+// Polish genitive meal labels for "Dodaj do: <meal>"
+const mealGenitivePl: Record<MealType, string> = {
+  breakfast: 'Śniadania',
+  'second-breakfast': 'Drugiego śniadania',
+  lunch: 'Obiadu',
+  snack: 'Przekąsek',
+  dinner: 'Kolacji',
 }
 
 type Props = {
-  /** Otwiera sheet dla podanej pory posiłku; `null` = zamknięty. */
+  /** Opens the sheet for the given meal slot; `null` = closed. */
   meal: MealType | null
-  /** Data wpisu w formacie YYYY-MM-DD */
+  /** Entry date in YYYY-MM-DD format. */
   date: string
   onClose: () => void
-  /** Wywoływane po potwierdzeniu – pora posiłku, wybrany produkt i ilość. */
+  /** Called on submit with meal slot, selected product, and gram amount. */
   onAdd: (meal: MealType, product: Product, amountInGrams: number, unitKey?: string, quantity?: number) => void
-  /** Wywoływane po dodaniu szybkiego wpisu – do odświeżenia listy */
+  /** Called after saving a Quick Add / AI entry to refresh the diary list. */
   onQuickAddComplete?: () => void
-  /** Wewnętrzne ID partnera, gdy dodajemy do jego dziennika; undefined = własny dziennik */
+  /** Internal partner ID when logging to their diary; undefined = own diary. */
   targetUserId?: number
 }
 
 export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, targetUserId }: Props) {
+  const { language } = useOptionalLanguage()
+  const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key)
   const router = useRouter()
   const searchParams = useSearchParams()
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -58,26 +61,26 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
   const [quickAddFat, setQuickAddFat] = useState('')
   const [quickAddCarbs, setQuickAddCarbs] = useState('')
 
-  // Obsługa preselectProductId - automatyczne wybieranie produktu po dodaniu
+  // Handle preselectProductId - auto-select newly created product on redirect
   useEffect(() => {
     const preselectProductId = searchParams?.get('preselectProductId')
     if (preselectProductId && meal) {
-      // Pobierz produkt z API
+      // Fetch product from API
       api.getProduct(Number(preselectProductId))
         .then((product) => {
           if (product) {
             setPicked(product)
-            // Ustaw domyślną porcję jeśli istnieje
+            // Apply default serving if defined
             if (product.defaultServing) {
               setAmount(String(product.defaultServing))
             }
           }
-          // Wyczyść WSZYSTKIE parametry z URL (meal, date, preselectProductId)
+          // Strip ALL URL query parameters (meal, date, preselectProductId)
           router.replace(window.location.pathname)
         })
         .catch((error) => {
-          console.error('Błąd podczas ładowania preselected produktu:', error)
-          // W przypadku błędu również wyczyść URL
+          console.error('Error loading preselected product:', error)
+          // Also clear URL parameters on error
           router.replace(window.location.pathname)
         })
     }
@@ -87,24 +90,23 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
     const dialog = dialogRef.current
     if (!dialog) return
     if (meal && !dialog.open) dialog.showModal()
-    // Rodzic ustawia `meal = null` po dodaniu produktu – zamykamy wtedy dialog.
-    // `close()` wywoła zdarzenie `close` → handleClose resetuje formularz.
+    // Parent sets `meal = null` after logging; close dialog and let `onClose` reset state.
     else if (!meal && dialog.open) dialog.close()
   }, [meal])
 
-  // Wyszukiwanie produktów z debounce + załaduj wszystkie przy otwarciu
+  // Debounced product search + initial catalog load when sheet opens
   useEffect(() => {
-    if (!meal) return // Nie ładuj gdy dialog zamknięty
+    if (!meal) return // Skip while sheet is closed
 
     setSearching(true)
     const timeoutId = setTimeout(async () => {
-      const results = await api.searchProducts(query)
+      const results = await api.searchProducts(query, language)
       setSearchResults(results)
       setSearching(false)
-    }, query.trim() ? 300 : 0) // Bez debounce dla pustego query (ładowanie początkowe)
+    }, query.trim() ? 300 : 0) // No debounce for empty initial load
 
     return () => clearTimeout(timeoutId)
-  }, [query, meal])
+  }, [query, meal, language])
 
   function handleClose() {
     setQuery('')
@@ -124,16 +126,18 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
     onClose()
   }
 
-  const mealLabel = MEALS.find((m) => m.id === meal)?.label ?? ''
-  const mealLabelPL = mealTranslations[mealLabel] || mealLabel
+  const mealLabel = meal
+    ? language === 'pl'
+      ? mealGenitivePl[meal]
+      : getMealLabel('en', meal)
+    : ''
 
   const amountNum = Number(amount)
   const validAmount = Number.isFinite(amountNum) && amountNum > 0 && amountNum <= 5000
   const preview = picked && validAmount ? macrosFor(picked, amountNum) : null
 
   async function pick(product: Product) {
-    // Nie importuj jeszcze produktu - po prostu wybierz go do edycji
-    // Import nastąpi dopiero gdy użytkownik kliknie "Dodaj do [posiłku]"
+    // Do not import OFF products on selection; defer import until actually added to diary
     setPicked(product)
     setAmount(String(product.defaultServing))
   }
@@ -143,21 +147,21 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
 
     let productToAdd = picked
 
-    // Jeśli produkt pochodzi z OFF (nie ma jeszcze lokalnego ID), najpierw go zaimportuj
+    // Import Open Food Facts product to local DB before creating a diary entry
     if (picked.dataSource === 'OFF' || picked.id === 0) {
       console.log('[AddFoodSheet] Product from OFF detected, importing before adding to diary...')
       const imported = await api.importProduct(picked)
       
       if (!imported) {
         console.error('[AddFoodSheet] Failed to import product from OFF')
-        showToast('Nie udało się zaimportować produktu')
+        showToast(t('import-product-error'))
         return
       }
       
       productToAdd = imported
     }
 
-    // Dodaj produkt do dziennika
+    // Add product to diary
     onAdd(meal, productToAdd, amountNum)
   }
 
@@ -165,30 +169,30 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
     setShowScanner(false)
     setSearching(true)
 
-    const product = await api.getProductByBarcode(barcode)
+    const product = await api.getProductByBarcode(barcode, language)
     setSearching(false)
 
     if (!product) {
-      // Zapisz kod kreskowy i wyświetl opcję dodania ręcznego
+      // Save scanned barcode and display the manual-entry prompt
       setScannedBarcode(barcode)
       console.log('[AddFoodSheet] Product not found for barcode:', barcode)
       return
     }
 
-    // Produkt znaleziony - wyczyść stan i użyj normalnego flow
+    // Product found - reset barcode state and open portion picker
     setScannedBarcode(null)
-    // Użyj funkcji pick(), która obsługuje lazy loading OFF
+    // pick() handles lazy OFF import on confirmation
     await pick(product)
   }
 
   function handleAddManually() {
     if (scannedBarcode) {
-      // Przekieruj na formularz z kodem kreskowym i parametrami powrotu
+      // Redirect to manual product creation with barcode and return params
       router.push(`/add-product?barcode=${scannedBarcode}&returnUrl=/&meal=${meal}&date=${date}`)
     }
   }
 
-  // Obsługa szybkiego dodawania
+  // Handle Quick Add submission
   async function handleQuickAdd() {
     if (!meal) return
     
@@ -197,7 +201,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
     const fat = Number(quickAddFat)
     const carbs = Number(quickAddCarbs)
 
-    // Walidacja: wszystkie pola muszą być liczbami >= 0
+    // Validation: all numeric fields must be >= 0 and non-empty
     if (
       !Number.isFinite(calories) || calories < 0 ||
       !Number.isFinite(protein) || protein < 0 ||
@@ -208,15 +212,15 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
       quickAddFat.trim() === '' ||
       quickAddCarbs.trim() === ''
     ) {
-      showToast('Uzupełnij kalorie oraz wszystkie makroskładniki (Białko, Tłuszcz, Węglowodany)')
+      showToast(t('quick-add-validation'))
       return
     }
 
     try {
-      // Wyślij dane bezpośrednio do endpointu dziennika (bez tworzenia produktu)
-      // Dla custom entries nie wysyłamy AmountInGrams (wartości są bezpośrednie, nie per 100g)
+      // Post directly to diary endpoint without creating a catalog product.
+      // AmountInGrams is null because quick-add macros are total entry values, not per 100g.
       const entry = await api.createDiaryEntry(date, meal, null, {
-        customName: quickAddName.trim() || 'Szybki wpis',
+        customName: quickAddName.trim() || t('quick-entry-default-name'),
         customCalories: calories,
         customProtein: protein,
         customFat: fat,
@@ -225,16 +229,16 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
       })
 
       if (!entry) {
-        showToast('Nie udało się dodać wpisu. Sprawdź połączenie z serwerem.')
+        showToast(t('add-entry-network-error'))
         return
       }
 
-      // Zamknij modal i odśwież listę
+      // Close sheet and refresh diary entries
       handleClose()
       onQuickAddComplete?.()
     } catch (error) {
-      console.error('Błąd przy dodawaniu szybkiego wpisu:', error)
-      showToast('Nie udało się dodać wpisu. Sprawdź połączenie z serwerem.')
+      console.error('Error creating quick add entry:', error)
+      showToast(t('add-entry-network-error'))
     }
   }
 
@@ -282,7 +286,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
           <div className="flex flex-1 flex-col items-center">
             <span className="mb-1 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
             <h2 id="add-food-title" className="font-heading text-base font-bold">
-              Dodaj do: {mealLabelPL}
+              {t('add-to-prefix')} {mealLabel}
             </h2>
           </div>
           <button
@@ -297,19 +301,19 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
 
         {!picked ? (
           <>
-            {/* Ukryj pasek wyszukiwania i scanner w trybie Quick Add i AI */}
+            {/* Hide search bar and scanner in Quick Add and AI modes */}
             {!isQuickAddMode && !isAiMode && (
               <div className="shrink-0 px-4 pb-3">
                 <div className="flex gap-2">
                   <label className="flex flex-1 items-center gap-2 rounded-2xl bg-card px-4 py-3 shadow-sm focus-within:outline-2 focus-within:outline-ring">
                     <Search className="size-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="sr-only">Search foods</span>
+                    <span className="sr-only">{t('search-placeholder')}</span>
                     <input
                       type="search"
                       autoFocus
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search for a product…"
+                      placeholder={t('search-placeholder')}
                       className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
                     />
                   </label>
@@ -317,9 +321,9 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                     type="button"
                     onClick={() => setShowScanner(true)}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-secondary px-3 py-3 text-sm font-semibold transition-transform active:scale-95"
-                    aria-label="Scan barcode"
+                    aria-label={t('scan-barcode-aria')}
                   >
-                    <ScanLine className="size-4" /> Scan
+                    <ScanLine className="size-4" /> {t('scan')}
                   </button>
                 </div>
               </div>
@@ -331,14 +335,14 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                 onClose={() => setShowScanner(false)}
               />
             ) : scannedBarcode ? (
-              // Wyświetl informację o nieznanym produkcie i przycisk do ręcznego dodania
+              // Display unknown barcode message with manual add CTA
               <div className="flex flex-1 flex-col items-center justify-center px-4 pb-6">
                 <div className="mb-6 text-center">
                   <div className="mb-2 text-lg font-semibold text-foreground">
-                    Nie znaleziono produktu
+                    {t('product-not-found')}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Kod: {scannedBarcode}
+                    {t('barcode-code')} {scannedBarcode}
                   </div>
                 </div>
                 <button
@@ -346,48 +350,48 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                   onClick={handleAddManually}
                   className="w-full max-w-md rounded-2xl bg-primary px-6 py-4 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95"
                 >
-                  Nie znaleziono produktu. Dodaj go ręcznie
+                  {t('add-manually-prompt')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setScannedBarcode(null)}
                   className="mt-4 text-sm text-muted-foreground underline"
                 >
-                  Wróć
+                  {t('back')}
                 </button>
               </div>
             ) : isQuickAddMode ? (
-              // Tryb szybkiego dodawania
+              // Quick Add mode
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
                 <div className="flex flex-col gap-4">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Szybkie dodawanie</h3>
+                  <h3 className="text-lg font-semibold">{t('quick-add-title')}</h3>
                   
                   <div className="space-y-3">
                     <div>
                       <label htmlFor="quick-name" className="block text-sm font-medium mb-1">
-                        Nazwa (opcjonalnie)
+                        {t('quick-name-label')}
                       </label>
                       <input
                         id="quick-name"
                         type="text"
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
-                        placeholder="np. Pizza"
+                        placeholder={t('quick-name-placeholder')}
                         className="w-full rounded-2xl bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-ring"
                       />
                     </div>
                     
                     <div>
                       <label htmlFor="quick-calories" className="block text-sm font-medium mb-1">
-                        Kalorie (wymagane) <span className="text-red-500">*</span>
+                        {t('quick-calories-label')} <span className="text-red-500">*</span>
                       </label>
                       <input
                         id="quick-calories"
                         type="number"
                         value={quickAddCalories}
                         onChange={(e) => setQuickAddCalories(e.target.value)}
-                        placeholder="np. 250"
+                        placeholder="e.g. 250"
                         min="0"
                         className="w-full rounded-2xl bg-card px-4 py-3 text-base outline-none focus:ring-2 focus:ring-ring"
                       />
@@ -396,7 +400,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <label htmlFor="quick-protein" className="block text-sm font-medium mb-1">
-                          Białko (g) <span className="text-red-500">*</span>
+                          {t('quick-protein-label')} <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="quick-protein"
@@ -412,7 +416,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                       
                       <div>
                         <label htmlFor="quick-fat" className="block text-sm font-medium mb-1">
-                          Tłuszcz (g) <span className="text-red-500">*</span>
+                          {t('quick-fat-label')} <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="quick-fat"
@@ -428,7 +432,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                       
                       <div>
                         <label htmlFor="quick-carbs" className="block text-sm font-medium mb-1">
-                          Węgl. (g) <span className="text-red-500">*</span>
+                          {t('quick-carbs-label')} <span className="text-red-500">*</span>
                         </label>
                         <input
                           id="quick-carbs"
@@ -450,14 +454,14 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                       onClick={() => setIsQuickAddMode(false)}
                       className="flex-1 rounded-full bg-secondary py-3 text-base font-semibold transition-transform active:scale-[0.98]"
                     >
-                      Wróć
+                      {t('back')}
                     </button>
                     <button
                       type="button"
                       onClick={handleQuickAdd}
                       className="flex-1 rounded-full bg-primary py-3 text-base font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
                     >
-                      Dodaj do jadłospisu
+                      {t('quick-add-submit')}
                     </button>
                   </div>
                 </div>
@@ -479,13 +483,13 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
               <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-24">
               {searching && (
                 <li className="py-10 text-center text-sm text-muted-foreground">
-                  Wyszukiwanie...
+                  {t('searching')}
                 </li>
               )}
               {!searching && query.trim() && searchResults.length === 0 && (
                 <li className="flex flex-col items-center gap-4 py-10">
                   <p className="text-center text-sm text-muted-foreground">
-                    Brak wyników dla &quot;{query}&quot;
+                    {t('no-results-for')} &quot;{query}&quot;
                   </p>
                 </li>
               )}
@@ -510,7 +514,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
             </ul>
             )}
             
-            {/* Sticky footer - widoczny tylko w trybie wyszukiwania (nie w Quick Add, AI ani Scanner) */}
+            {/* Sticky footer - visible only in search mode (hidden in Quick Add, AI, and Scanner) */}
             {!isQuickAddMode && !isAiMode && !showScanner && !scannedBarcode && (
               <div className="sticky bottom-0 bg-background border-t p-4 flex gap-2 z-10">
                 <button
@@ -518,7 +522,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                   onClick={() => router.push(`/add-product?returnUrl=/&meal=${meal}&date=${date}`)}
                   className="flex-1 rounded-full border border-border bg-background py-3 px-2 text-xs sm:text-sm font-semibold transition-transform active:scale-[0.98] hover:bg-secondary"
                 >
-                  Nowy produkt
+                  {t('new-product')}
                 </button>
                 <button
                   type="button"
@@ -526,14 +530,14 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                   className="flex-1 flex items-center justify-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-3 px-2 text-xs sm:text-sm font-semibold text-primary transition-transform active:scale-[0.98] hover:bg-primary/20"
                 >
                   <Sparkles className="size-3.5 shrink-0" />
-                  <span>Posiłek AI</span>
+                  <span>{t('ai-meal')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsQuickAddMode(true)}
                   className="flex-1 rounded-full bg-primary py-3 px-2 text-xs sm:text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
                 >
-                  Szybkie dodanie
+                  {t('quick-add')}
                 </button>
               </div>
             )}
@@ -541,7 +545,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
         ) : (
           <PortionForm
             product={picked}
-            mealLabel={mealLabelPL}
+            mealLabel={mealLabel}
             targetUserId={targetUserId}
             date={date}
             meal={meal!}
@@ -578,7 +582,7 @@ type PortionFormProps = {
   setToast: (msg: string | null) => void
 }
 
-/** Widok wyboru porcji dla wybranego produktu. */
+/** Portion picker view for a selected product. */
 function PortionForm({
   product,
   mealLabel,
@@ -590,18 +594,21 @@ function PortionForm({
   onQuickAddComplete,
   setToast,
 }: PortionFormProps) {
-  // Budujemy szybkie wiersze (1–3) używając buildQuickRows
-  const rawRows = buildQuickRows(product, null) // null = brak historii użycia, używamy fallbacków
-  
-  // Przekształcamy na format z etykietą i kcal
+  const { language } = useOptionalLanguage()
+  const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key)
+
+  // Build quick-add rows (1-3) via buildQuickRows
+  const rawRows = buildQuickRows(product, null) // null = no usage history yet, use defaults
+
+  // Map to rows with localized unit labels and computed kcal
   const quickRows = rawRows.map((row) => {
     const macros = macrosFor(product, row.grams)
     const label = row.unitKey === 'portion'
-      ? `${row.quantity} ${row.quantity === 1 ? 'porcja' : 'porcje'}`
+      ? `${row.quantity} ${t(row.quantity === 1 ? 'portion-singular' : 'portion-plural-few')}`
       : row.unitKey === 'package'
-      ? `${row.quantity} opakowanie`
-      : `${row.quantity} ${getUnitLabel('pl', row.unitKey)}`
-    
+      ? `${row.quantity} ${getUnitLabel(language, 'package')}`
+      : `${row.quantity} ${getUnitLabel(language, row.unitKey)}`
+
     return {
       label,
       unitKey: row.unitKey,
@@ -610,40 +617,40 @@ function PortionForm({
       kcal: macros.kcal,
     }
   })
-  
-  // Procenty kalorii z makroskładników (dla wykresów kołowych)
+
+  // Macro calorie percentages for circular progress rings
   const percentages = calcMacroPercentages(product)
 
-  // Wiersz 4: najczęściej używana jednostka (opcja z kalkulatorem)
-  // Na razie używamy domyślnie 'portion' jeśli produkt ma porcję, w przeciwnym razie 'g'
+  // Row 4: most frequently used unit calculator
+  // Defaults to 'portion' when a serving weight exists, otherwise 'g'
   const mostUsedUnitKey = product.defaultServingGrams && product.defaultServingGrams > 0 ? 'portion' : 'g'
-  const mostUsedUnitLabel = getUnitLabel('pl', mostUsedUnitKey)
+  const mostUsedUnitLabel = getUnitLabel(language, mostUsedUnitKey)
   const mostUsedDefaultQuantity = 1
 
-  // Helper: importuj produkt z OFF jeśli potrzeba, następnie wykonaj akcję
+  // Helper: import an OFF product first if needed, then execute action
   const ensureImported = async (action: (importedProduct: Product) => Promise<void>) => {
     let productToUse = product
-    
-    // Jeśli produkt pochodzi z OFF (nie ma jeszcze lokalnego ID), najpierw go zaimportuj
+
+    // Import OFF products on demand before adding to diary
     if (product.dataSource === 'OFF' || product.id === 0) {
       console.log('[PortionForm] Product from OFF detected, importing before adding to diary...')
       const imported = await api.importProduct(product)
-      
+
       if (!imported) {
         console.error('[PortionForm] Failed to import product from OFF')
-        setToast('Nie udało się zaimportować produktu')
+        setToast(t('import-product-error'))
         return
       }
-      
+
       productToUse = imported
     }
-    
+
     await action(productToUse)
   }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto pb-6">
-      {/* Nagłówek produktu z kolorowym tłem – kompaktowy */}
+      {/* Compact colored product header */}
       <div className="mx-4 mb-4 rounded-2xl bg-primary px-4 py-2.5">
         <div>
           <h3 className="font-heading text-lg font-bold text-primary-foreground text-balance">
@@ -656,9 +663,9 @@ function PortionForm({
       </div>
 
       <div className="flex flex-col gap-5 px-4">
-        {/* Tabela wierszy dodawania */}
+        {/* Serving rows card */}
         <div className="flex flex-col overflow-hidden rounded-3xl bg-card shadow-sm">
-          {/* Wiersze 1–3: szybkie dodawanie */}
+          {/* Rows 1-3: quick-add presets */}
           {quickRows.map((row, idx) => (
             <QuickServingRow
               key={idx}
@@ -669,86 +676,86 @@ function PortionForm({
                 ensureImported(async (importedProduct) => {
                   await onAdd(meal, importedProduct, row.grams, row.unitKey, row.quantity)
                 }).catch((err) => {
-                  console.error('Błąd dodawania:', err)
-                  setToast('Błąd podczas dodawania')
+                  console.error('Failed to add entry:', err)
+                  setToast(t('save-error'))
                 })
               }}
             />
           ))}
-          
-          {/* Wiersz 4: kalkulator z fixed unit (najczęściej używana jednostka) */}
+
+          {/* Row 4: calculator with fixed most-used unit */}
           <FixedUnitCalculatorRow
             product={product}
             unitKey={mostUsedUnitKey}
             unitLabel={mostUsedUnitLabel}
             defaultQuantity={mostUsedDefaultQuantity}
-            lang="pl"
+            lang={language}
             onAdd={(quantity, grams) => {
               ensureImported(async (importedProduct) => {
                 await onAdd(meal, importedProduct, grams, mostUsedUnitKey, quantity)
               }).catch((err) => {
-                console.error('Błąd dodawania:', err)
-                setToast('Błąd podczas dodawania')
+                console.error('Failed to add entry:', err)
+                setToast(t('save-error'))
               })
             }}
           />
-          
-          {/* Wiersz 5: kalkulator z dropdown jednostek */}
+
+          {/* Row 5: calculator with unit selector dropdown */}
           <UnitSelectCalculatorRow
             product={product}
-            lang="pl"
+            lang={language}
             onAdd={(unitKey, quantity, grams) => {
               ensureImported(async (importedProduct) => {
                 await onAdd(meal, importedProduct, grams, unitKey, quantity)
               }).catch((err) => {
-                console.error('Błąd dodawania:', err)
-                setToast('Błąd podczas dodawania')
+                console.error('Failed to add entry:', err)
+                setToast(t('save-error'))
               })
             }}
           />
         </div>
 
-        {/* Wartości referencyjne "W 100g" z wykresami kołowymi */}
+        {/* Per-100g reference nutrition with macro rings */}
         <div className="flex flex-col gap-4 rounded-3xl bg-card p-5 shadow-sm">
-          <h4 className="text-sm font-medium text-muted-foreground">W 100{product.unit}:</h4>
-          
+          <h4 className="text-sm font-medium text-muted-foreground">{t('in-100')}{product.unit}:</h4>
+
           <div className="flex items-center justify-around gap-3">
-            {/* Kalorie */}
+            {/* Calories */}
             <div className="flex flex-col items-center gap-1">
               <dd className="font-heading text-2xl font-bold tabular-nums">
                 {product.caloriesPer100g}
               </dd>
-              <dt className="text-[10px] text-muted-foreground">Kalorie</dt>
+              <dt className="text-[10px] text-muted-foreground">{t('calories')}</dt>
             </div>
 
-            {/* Wykresy kołowe */}
+            {/* Macro rings */}
             <div className="flex gap-2.5">
               <MacroCircle
                 grams={product.proteinPer100g}
                 percentage={percentages.proteinPct}
-                label="Białko"
+                label={t('protein')}
                 colorClass="text-protein"
               />
               <MacroCircle
                 grams={product.fatPer100g}
                 percentage={percentages.fatPct}
-                label="Tłuszcze"
+                label={t('fat')}
                 colorClass="text-fat"
               />
               <MacroCircle
                 grams={product.carbsPer100g}
                 percentage={percentages.carbsPct}
-                label="Węgle"
+                label={t('carbs')}
                 colorClass="text-carbs"
               />
             </div>
           </div>
         </div>
 
-        {/* Składniki */}
+        {/* Ingredients */}
         {product.ingredients && (
           <div className="rounded-3xl bg-card p-5 shadow-sm">
-            <h4 className="mb-2 text-sm font-bold">Składniki:</h4>
+            <h4 className="mb-2 text-sm font-bold">{t('ingredients-heading')}</h4>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {product.ingredients}
             </p>
@@ -759,7 +766,7 @@ function PortionForm({
   )
 }
 
-/** Pojedyncza komórka makroskładnika w siatce podglądu. */
+/** Single macronutrient cell in the preview grid. */
 function Nutrient({ label, value, unit }: { label: string; value?: number; unit?: string }) {
   return (
     <div className="flex flex-col gap-0.5">

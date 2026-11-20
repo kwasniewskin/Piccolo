@@ -1,175 +1,92 @@
-# Piccolo.Api.Tests - Testy integracyjne
+# Piccolo.Api.Tests - Integration Test Suite
 
-Profesjonalny projekt testów integracyjnych dla backendu Piccolo.Api z pełną izolacją od produkcyjnej bazy danych i zewnętrznych serwisów.
+xUnit integration test suite for the `Piccolo.Api` backend with full isolation from the local development database and external HTTP services.
 
-## 🎯 Zakres testów
+## Test Scope
 
-Projekt zawiera kompleksowy zestaw testów integracyjnych dla kontrolera `ProductsController`:
+The suite covers core controllers, authorization, serving unit rules, and partner synchronization:
 
-### ✅ Testy CRUD
-- **POST /api/products** - tworzenie nowego produktu
-- **GET /api/products/{id}** - pobieranie istniejącego produktu
-- **GET /api/products/{id}** - weryfikacja 404 dla nieistniejącego produktu
-- **PUT /api/products/{id}** - aktualizacja istniejącego produktu
-- **PUT /api/products/{id}** - weryfikacja 404 dla nieistniejącego produktu
-- **DELETE /api/products/{id}** - usuwanie istniejącego produktu
-- **DELETE /api/products/{id}** - weryfikacja 404 dla nieistniejącego produktu
+### Products & Catalog (`ProductsController`)
+- **POST /api/products** - create product & serving unit validation
+- **GET /api/products/{id}** - fetch existing product & `404 Not Found`
+- **PUT /api/products/{id}** - update existing product & `404 Not Found`
+- **DELETE /api/products/{id}** - delete existing product & `404 Not Found`
+- **GET /api/products/search** - local search, token matching, and empty queries
+- **POST /api/products/import** - Open Food Facts import & duplicate conflict (`409 Conflict`)
 
-### 🔍 Testy wyszukiwania
-- **GET /api/products/search** - wyszukiwanie produktów po nazwie
-- **GET /api/products/search** - pusta lista dla braku wyników
+### Diary, Goals & Partner Sync
+- **DiaryController** - per-user entries, quick-add custom macros, and unit usage history
+- **GoalsController** - reading and updating daily calorie/macro targets
+- **PartnerController** - 6-digit pairing codes, bidirectional partner linking, authorization boundaries (`403` when unlinked), and unlinking
 
-### 📦 Testy importu
-- **POST /api/products/import** - import nowego produktu (sukces)
-- **POST /api/products/import** - import duplikatu (409 Conflict)
+## Test Architecture
 
-## 🏗️ Architektura testów
+### `CustomWebApplicationFactory`
+Extends `WebApplicationFactory<Program>` with isolated test dependencies:
 
-### CustomWebApplicationFactory
-Główna klasa konfiguracyjna dziedzicząca po `WebApplicationFactory<Program>`:
-
-1. **Baza danych w pamięci** - SQLite z `DataSource=:memory:` zapewnia:
-   - Pełną izolację od produkcyjnej bazy `piccolo.db`
-   - Szybkie wykonanie testów (wszystko w RAM)
-   - Automatyczne czyszczenie po zakończeniu
-
-2. **TestAuthHandler** - Mock autentykacji JWT:
-   - Automatycznie dodaje claim `NameIdentifier = "1"` do każdego żądania
-   - Eliminuje potrzebę prawdziwych tokenów JWT
-   - Zapobiega `NullReferenceException` w kodzie pobierającym `User.Claims`
-
-3. **MockOpenFoodFactsService** - Mock zewnętrznego API:
-   - Zwraca puste odpowiedzi zamiast prawdziwych wywołań HTTP
-   - Pełna izolacja od sieci i zewnętrznych serwisów
-   - Deterministyczne testy bez zależności od API
+1. **In-Memory SQLite Database** (`DataSource=:memory:`):
+   - Zero side effects on `piccolo.db`
+   - Fast execution inside RAM with clean schema per run
+2. **TestAuthHandler** - mock JWT authentication scheme:
+   - Injects test `NameIdentifier` claims automatically
+   - Supports dynamic user-switching headers (`X-Test-User-Id`) for multi-user / partner tests
+3. **MockOpenFoodFactsService** - deterministic mock overriding `OpenFoodFactsService`:
+   - Returns clean mock responses without external HTTP calls
 
 ### Helpers
-- **ProductTestHelper** - factory methods do tworzenia testowych produktów z wartościami domyślnymi
-- **TestAuthHandler** - handler autentykacji testowej
-- **MockOpenFoodFactsService** - mock serwisu Open Food Facts
+- **ProductTestHelper** - factory helpers for valid test products and DTOs
+- **TestAuthHandler** - fake authentication handler
+- **MockOpenFoodFactsService** - isolated external API stub
 
-## 🚀 Uruchamianie testów
+## Running Tests
 
-### Wszystkie testy
+### Run full suite
 ```bash
-cd backend/Piccolo.Api.Tests
-dotnet test
+dotnet test backend/Piccolo.Api.Tests
 ```
 
-### Z szczegółowymi logami
+### Detailed console logs
 ```bash
-dotnet test --logger "console;verbosity=detailed"
+dotnet test backend/Piccolo.Api.Tests --logger "console;verbosity=detailed"
 ```
 
-### Z pomiarem pokrycia kodu
+### Collect coverage
 ```bash
-dotnet test --collect:"XPlat Code Coverage"
+dotnet test backend/Piccolo.Api.Tests --collect:"XPlat Code Coverage"
 ```
 
-### Filtrowanie testów
+### Filter specific tests
 ```bash
-# Tylko testy dla GET
-dotnet test --filter "FullyQualifiedName~Get"
+# Only GET product tests
+dotnet test backend/Piccolo.Api.Tests --filter "FullyQualifiedName~Get"
 
-# Tylko testy dla konkretnej metody
-dotnet test --filter "FullyQualifiedName~CreateProduct"
+# Specific controller suite
+dotnet test backend/Piccolo.Api.Tests --filter "FullyQualifiedName~PartnerControllerTests"
 ```
 
-## 📊 Wyniki
+## Main Dependencies
 
-```
-Łączna liczba testów: 11
-Zakończone pomyślnie: 11
-Zakończone niepowodzeniem: 0
-Łączny czas: ~2.8s
-```
+- `xunit` (2.9.2) - test runner framework
+- `xunit.runner.visualstudio` - IDE test explorer adapter
+- `Microsoft.AspNetCore.Mvc.Testing` - `WebApplicationFactory` host
+- `FluentAssertions` (7.0.0) - expressive test assertions
+- `Microsoft.EntityFrameworkCore.Sqlite` - in-memory SQLite provider
 
-## 📦 Pakiety NuGet
+## Database Isolation Guarantee
 
-- `xunit` (2.9.2) - framework testowy
-- `xunit.runner.visualstudio` (2.8.2) - runner dla Visual Studio
-- `Microsoft.AspNetCore.Mvc.Testing` (9.0.0) - WebApplicationFactory
-- `FluentAssertions` (7.0.0) - czytelne asercje
-- `Microsoft.EntityFrameworkCore.Sqlite` (9.0.0) - baza w pamięci
+- Tests **never modify** `piccolo.db`.
+- Every run creates a fresh in-memory schema initialized exclusively by test fixtures and torn down on disposal.
 
-## 🔒 Bezpieczeństwo
+## Best Practices Used
 
-✅ **Gwarancja izolacji:**
-- Testy **NIE dotykają** produkcyjnej bazy `piccolo.db`
-- Wszystkie operacje wykonywane są w bazie w pamięci RAM
-- Baza jest tworzona od zera przy każdym uruchomieniu testów
-- Po zakończeniu testów baza jest automatycznie usuwana
+1. **Naming convention**: `MethodName_WhenCondition_ExpectedBehavior`
+2. **AAA structure**: Arrange → Act → Assert
+3. **Full test independence**: No shared mutable state across test classes
+4. **FluentAssertions**: Clear diagnostic diffs on assertion failures
 
-✅ **Weryfikacja:**
-```bash
-# Sprawdź datę modyfikacji produkcyjnej bazy przed i po testach:
-(Get-Item 'backend/Piccolo.Api/piccolo.db').LastWriteTime
-```
-
-## 🛠️ Debugowanie testów
-
-### Visual Studio
-1. Otwórz Test Explorer (Ctrl + E, T)
-2. Kliknij prawym na test → Debug
-
-### Visual Studio Code
-1. Zainstaluj rozszerzenie ".NET Core Test Explorer"
-2. Kliknij ikonę "Debug Test" obok nazwy testu
-
-### Linia komend z punktem przerwania
-```bash
-# Uruchom z debuggerem
-dotnet test --filter "FullyQualifiedName~CreateProduct"
-```
-
-## 📝 Dodawanie nowych testów
-
-### 1. Dodaj test do `ProductsControllerTests.cs`
-```csharp
-[Fact]
-public async Task MyNewTest_WhenCondition_ExpectedBehavior()
-{
-    // Arrange
-    var product = ProductTestHelper.CreateValidProduct("Test Product");
-    
-    // Act
-    var response = await _client.PostAsJsonAsync("/api/products", product);
-    
-    // Assert
-    response.StatusCode.Should().Be(HttpStatusCode.Created);
-}
-```
-
-### 2. Uruchom test
-```bash
-dotnet test --filter "FullyQualifiedName~MyNewTest"
-```
-
-## 🎓 Best Practices
-
-1. **Nazewnictwo testów**: `MethodName_WhenCondition_ExpectedBehavior`
-2. **Struktura AAA**: Arrange → Act → Assert
-3. **Izolacja**: Każdy test jest niezależny i może być uruchomiony osobno
-4. **FluentAssertions**: Używaj czytelnych asercji typu `Should().Be()` zamiast `Assert.Equal()`
-5. **Unique identifiers**: Użyj `Guid` w nazwach testowych danych dla uniknięcia kolizji
-
-## 🐛 Troubleshooting
-
-### Problem: "Connection closed" podczas testów
-**Rozwiązanie**: `CustomWebApplicationFactory` teraz utrzymuje otwarte połączenie przez cały czas życia factory.
-
-### Problem: 401 Unauthorized
-**Rozwiązanie**: `TestAuthHandler` jest już skonfigurowany i automatycznie dodaje claims.
-
-### Problem: 500 Internal Server Error
-**Rozwiązanie**: Sprawdź logi w konsoli - prawdopodobnie problem z konfiguracją DI lub brakującym serwisem.
-
-### Problem: Testy wpływają na produkcyjną bazę
-**Rozwiązanie**: Sprawdź, czy `CustomWebApplicationFactory` używa `DataSource=:memory:` i nie ma hardcoded ścieżki do `piccolo.db`.
-
-## 📚 Dokumentacja
+## References
 
 - [xUnit Documentation](https://xunit.net/)
 - [FluentAssertions Documentation](https://fluentassertions.com/)
-- [Microsoft.AspNetCore.Mvc.Testing](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
-- [Entity Framework Core In-Memory Database](https://learn.microsoft.com/en-us/ef/core/testing/testing-without-the-database)
+- [Integration Tests in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests)
+- [Testing Without Your Production Database (EF Core)](https://learn.microsoft.com/en-us/ef/core/testing/testing-without-the-database)

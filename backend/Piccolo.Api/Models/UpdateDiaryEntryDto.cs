@@ -1,8 +1,8 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// DTO do aktualizacji wpisu w dzienniku żywieniowym.
-/// Wspiera zarówno wpisy z produktem (aktualizacja gramatury), jak i szybkie wpisy (aktualizacja wartości).
+/// DTO for updating an existing diary entry.
+/// Supports both product-linked entries (grams/units) and custom entries (macros).
 /// </summary>
 public class UpdateDiaryEntryDto
 {
@@ -11,21 +11,21 @@ public class UpdateDiaryEntryDto
     public MealType MealType { get; set; }
     
     /// <summary>
-    /// Nowa gramatury dla wpisu z produktem. Null jeśli nie zmieniamy.
+    /// Updated weight in grams for a product-linked entry, or null to keep unchanged.
     /// </summary>
     public double? AmountInGrams { get; set; }
     
     /// <summary>
-    /// Klucz jednostki (opcjonalny).
+    /// Optional serving unit key.
     /// </summary>
     public string? UnitKey { get; set; }
     
     /// <summary>
-    /// Ilość w jednostce (opcjonalna).
+    /// Optional quantity in the selected unit.
     /// </summary>
     public double? UnitQuantity { get; set; }
     
-    // Pola dla szybkich wpisów (Quick Add) - opcjonalne, aktualizowane tylko gdy podane
+    // Optional Quick Add fields updated when provided
     public string? CustomName { get; set; }
     public float? CustomCalories { get; set; }
     public float? CustomProtein { get; set; }

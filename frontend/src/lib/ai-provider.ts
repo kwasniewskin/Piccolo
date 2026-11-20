@@ -36,7 +36,7 @@ function parseJsonResponse<T>(rawContent: string, providerName: string): T {
     return JSON.parse(cleaned) as T
   } catch (err) {
     console.error(`[AI:${providerName}] JSON parse error:`, err, 'Raw:', rawContent)
-    throw new AiProviderError('Błąd parsowania odpowiedzi z API AI', 500)
+    throw new AiProviderError('Failed to parse AI API response', 500)
   }
 }
 
@@ -93,7 +93,7 @@ async function callOpenAiVisionJson<T>(
   if (!response.ok) {
     const errorText = await response.text()
     console.error(`[AI:openai] HTTP ${response.status}:`, errorText)
-    throw new AiProviderError('Błąd podczas analizy AI (OpenAI)', response.status)
+    throw new AiProviderError('AI analysis failed (OpenAI)', response.status)
   }
 
   const payload = await response.json()
@@ -170,7 +170,7 @@ async function callSingleGeminiModel<T>(
   if (!response.ok) {
     const errorText = await response.text()
     console.error(`[AI:gemini:${model}] HTTP ${response.status}:`, errorText)
-    throw new AiProviderError('Błąd podczas analizy AI (Gemini)', response.status)
+    throw new AiProviderError('AI analysis failed (Gemini)', response.status)
   }
 
   const payload = await response.json()
@@ -218,7 +218,7 @@ async function callGeminiVisionJson<T>(
         [404, 429, 500, 502, 503].includes(error.status)
       ) {
         console.warn(
-          `[AI:gemini] Model ${model} zwrócił HTTP ${error.status}, próbuję kolejnego modelu Gemini...`
+          `[AI:gemini] Model ${model} returned HTTP ${error.status}, trying next Gemini model...`
         )
         continue
       }
@@ -228,12 +228,12 @@ async function callGeminiVisionJson<T>(
 
   throw lastError instanceof Error
     ? lastError
-    : new AiProviderError('Błąd podczas analizy AI (Gemini)', 503)
+    : new AiProviderError('AI analysis failed (Gemini)', 503)
 }
 
 /**
- * Wywołuje model multimodalny zwracający czysty JSON.
- * Wybiera dostawcę według AI_PROVIDER lub preferredProvider (z automatycznym fallbackiem).
+ * Invokes a multimodal model that returns raw JSON.
+ * Selects provider via AI_PROVIDER or preferredProvider (with automatic fallback).
  */
 export async function callVisionJsonModel<T>(
   options: VisionJsonOptions
@@ -257,7 +257,7 @@ export async function callVisionJsonModel<T>(
         openaiKey
       ) {
         console.warn(
-          `[AI] Gemini zwróciło ${error.status}, automatyczny fallback na OpenAI`
+          `[AI] Gemini returned ${error.status}, falling back to OpenAI`
         )
         return callOpenAiVisionJson<T>(openaiKey, options)
       }
@@ -267,7 +267,7 @@ export async function callVisionJsonModel<T>(
 
   if (!openaiKey) {
     console.error('[AI] Brak klucza OPENAI_API_KEY ani GEMINI_API_KEY')
-    throw new AiProviderError('Błąd konfiguracji serwera AI (brak klucza API)', 500)
+    throw new AiProviderError('AI server configuration error (missing API key)', 500)
   }
 
   try {
@@ -279,7 +279,7 @@ export async function callVisionJsonModel<T>(
       geminiKey
     ) {
       console.warn(
-        `[AI] OpenAI zwróciło ${error.status}, automatyczny fallback na Gemini`
+        `[AI] OpenAI returned ${error.status}, falling back to Gemini`
       )
       return callGeminiVisionJson<T>(geminiKey, options)
     }

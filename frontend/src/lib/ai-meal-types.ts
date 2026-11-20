@@ -60,12 +60,14 @@ export type AnalyzeMealRequest = {
     isViewingPartner: boolean
     hasPartner: boolean
     partnerName?: string | null
+    language?: 'en' | 'pl'
   }
   previousMeals?: AiMealDraftItem[]
   refinementPrompt?: string
   recalculateIngredient?: {
     name: string
     amountGrams: number
+    language?: 'en' | 'pl'
   }
 }
 

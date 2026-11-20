@@ -1,51 +1,51 @@
-# TODO: Rozwiązywanie kolizji i przypisywanie kodów EAN z Open Food Facts (OFF) przy skanowaniu
+# Future Enhancement: Barcode Collision Resolution & EAN Linking with Open Food Facts
 
-## Cel
-Gdy użytkownik skanuje kod kreskowy (EAN), którego jeszcze nie ma w lokalnej bazie Piccolo, aplikacja pobiera produkt z Open Food Facts i sprawdza, czy taki produkt istnieje już u nas bez kodu EAN (np. z importu katalogowego). Zamiast tworzyć duplikat w bazie, użytkownik dostaje możliwość połączenia kodu EAN z istniejącym produktem albo świadomego dodania produktu z OFF jako nowego wpisu.
+## Goal
+When a user scans an EAN barcode that is not yet stored in the local Piccolo database, the app queries Open Food Facts (OFF) and checks whether a matching product already exists locally without an EAN (for instance, from catalog import). Instead of creating a duplicate entry, the user can choose to link the scanned EAN to the existing local product or import the OFF product as a new item.
 
 ---
 
-## Przepływ docelowy (UX + API)
+## Proposed Flow (UX + API)
 
 ```text
-Skan EAN
+Scan EAN
   │
-  ├─► Jest w lokalnej bazie (`Products.Barcode == ean`)
-  │      └─► Otwórz od razu arkusz dodawania posiłku (zero zapytań do OFF)
+  ├─► Found in local DB (`Products.Barcode == ean`)
+  │      └─► Open portion picker immediately (0 OFF requests)
   │
-  └─► Brak lokalnie
-         └─► Zapytaj OFF (`GetByBarcodeAsync(ean)`)
-               ├─► Brak w OFF → otwórz formularz ręcznego dodania produktu z wpisanym EAN
-               └─► Znaleziono w OFF
-                      └─► Szukaj w lokalnej bazie 1–3 kandydatów bez EAN
-                            ├─► Brak sensownego kandydata → standardowy zapis z OFF
-                            └─► Są kandydaci → ekran porównania (2 karty obok siebie)
+  └─► Not in local DB
+         └─► Query OFF (`GetByBarcodeAsync(ean)`)
+               ├─► Not in OFF → open manual product form with prefilled EAN
+               └─► Found in OFF
+                      └─► Search local DB for 1–3 candidates missing an EAN
+                            ├─► No strong match → standard OFF import flow
+                            └─► Candidates found → side-by-side comparison sheet
 ```
 
 ---
 
-## Jak wygląda ekran porównania dla użytkownika
+## Side-by-Side Comparison UX
 
-Użytkownik widzi obok siebie kartę **„Z Open Food Facts”** oraz kartę **„Pasujący produkt w naszej bazie”** (kcal, B/T/W na 100 g, waga opakowania, zdefiniowane jednostki np. `łyżka`, `plaster`, `opakowanie`, skład/zdjęcie) i ma **3 przyciski decyzji**:
+The user sees **"From Open Food Facts"** beside **"Matching product in local catalog"** (kcal, P/F/C per 100g, package weight, custom serving units such as `slice`, `piece`, `package`, ingredients/image) with **3 clear actions**:
 
-1. **„Połącz z produktem z bazy (zachowaj nasze makro i jednostki)”** *(domyślna, zalecana gdy to ten sam produkt)*
-   - Dopisuje `Barcode` do istniejącego rekordu w `Products`.
-   - Uzupełnia **tylko puste pola** z OFF (`SaltPer100g`, `Ingredients`, `ImageUrl`, `PackageWeightGrams`, jeśli u nas są `null`).
-   - Tworzy wpis w `ProductSourceRefs` (`Source = "OFF"`, `ExternalId = ean`).
-   - Zachowuje nasze sprawdzone makroskładniki i domowe jednostki z lokalnego katalogu.
-2. **„Połącz z produktem z bazy i nadpisz wartości z OFF”** *(gdy receptura/tabela na etykiecie w OFF jest nowsza lub dokładniejsza)*
-   - Robi to samo co wyżej, ale dodatkowo aktualizuje `CaloriesPer100g`, `ProteinPer100g`, `FatPer100g`, `CarbsPer100g`, `SaturatedFatPer100g`, `SugarsPer100g`, `FiberPer100g`, `SaltPer100g` wartościami z OFF.
-   - Zapisane wcześniej wpisy w `DiaryEntries` pozostają bezpieczne dzięki kolumnom `*Snapshot`.
-3. **„Dodaj z OFF jako osobny produkt”** *(gdy to inny wariant, inny smak albo inna gramatura opakowania)*
-   - Zapisuje nowy wiersz przez `POST /api/products/import` (dzięki czemu `Products.Barcode` pozostaje jednoznacznie 1:1 i opcja „1 × opakowanie” zawsze ma jednoznaczną wagę).
+1. **"Link to local product (keep local macros & units)"** *(default when it is the exact same product)*
+   - Assigns `Barcode` to the existing row in `Products`.
+   - Fills **only missing metadata** from OFF (`SaltPer100g`, `Ingredients`, `ImageUrl`, `PackageWeightGrams` if `null`).
+   - Inserts a `ProductSourceRefs` record (`Source = "OFF"`, `ExternalId = ean`).
+   - Preserves curated local nutrition values and custom serving units.
+2. **"Link to local product & overwrite nutrition from OFF"** *(when packaging/OFF values are newer)*
+   - Same as above, plus updates nutrition columns per 100g (`CaloriesPer100g`, `ProteinPer100g`, `FatPer100g`, `CarbsPer100g`, `SaturatedFatPer100g`, `SugarsPer100g`, `FiberPer100g`, `SaltPer100g`).
+   - Historical `DiaryEntries` remain unaffected thanks to `*Snapshot` columns.
+3. **"Add from OFF as a separate product"** *(when it is a different flavor, variant, or package weight)*
+   - Creates a distinct row via `POST /api/products/import`, preserving a unique 1:1 `Barcode` constraint per variant.
 
 ---
 
-## Zmiany techniczne do wdrożenia później
+## Technical Plan
 
 ### Backend (`backend/Piccolo.Api/`)
-1. **Nowy endpoint dopasowania:** `GET /api/products/barcode/{barcode}/resolve`
-   - Zwraca DTO:
+1. **Resolution endpoint:** `GET /api/products/barcode/{barcode}/resolve?lang=en`
+   - Response DTO:
      ```json
      {
        "source": "local" | "off" | "not_found",
@@ -54,20 +54,20 @@ Użytkownik widzi obok siebie kartę **„Z Open Food Facts”** oraz kartę **�
        "candidates": [ { "product": { ... }, "matchScore": 0.91 } ]
      }
      ```
-   - Logika szukania kandydatów (max 3):
-     - filtr `!p.IsArchived && (p.Barcode == null || p.Barcode == "")`
-     - tokeny z `SearchTextHelper.TokenizeQuery(offProduct.Name + " " + offProduct.Brand)`
-     - filtr bezpieczeństwa kalorii: `|p.CaloriesPer100g - offProduct.CaloriesPer100g| <= max(25, 0.20 * offProduct.CaloriesPer100g)` (chyba że OFF nie podał kcal)
-     - ranking po liczbie wspólnych tokenów nazwy + dopasowaniu marki + bliskości kalorii.
-2. **Nowy endpoint łączenia:** `POST /api/products/{id}/attach-barcode`
+   - Candidate matching rules (top 3):
+     - Filter `!p.IsArchived && (p.Barcode == null || p.Barcode == "")`
+     - Tokenize via `SearchTextHelper.TokenizeQuery(offProduct.Name + " " + offProduct.Brand)`
+     - Calorie sanity window: `|p.CaloriesPer100g - offProduct.CaloriesPer100g| <= max(25, 0.20 * offProduct.CaloriesPer100g)` (unless OFF kcal is missing)
+     - Rank by token overlap + brand match + calorie proximity.
+2. **Linking endpoint:** `POST /api/products/{id}/attach-barcode`
    - Body: `{ "barcode": "...", "overwriteNutrition": false, "offData": { ... } }`
-   - Waliduje unikalność `barcode` w `Products` (409 Conflict, jeśli inny produkt już ma ten kod).
-   - Aktualizuje produkt i dodaje `ProductSourceRef("OFF", barcode)`.
-3. **Testy xUnit:**
-   - scenariusz zwracania kandydatów bez EAN przy trafieniu z OFF,
-   - `attach-barcode` w obu trybach (`overwriteNutrition = false` i `true`),
-   - ochrona przed kolizją tego samego EAN na dwóch produktach (`409 Conflict`).
+   - Validates unique `barcode` across `Products` (`409 Conflict` if another item owns it).
+   - Updates product fields and records `ProductSourceRef("OFF", barcode)`.
+3. **xUnit Integration Tests:**
+   - Returning barcode-less local candidates upon OFF barcode hit
+   - `attach-barcode` in both modes (`overwriteNutrition = false` and `true`)
+   - Duplicate barcode guard (`409 Conflict`)
 
 ### Frontend (`frontend/src/`)
-- W [api.ts](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/lib/api.ts): funkcja `resolveProductByBarcode(barcode)` i `attachBarcodeToProduct(productId, payload)`.
-- W komponencie skanera / [add-food-sheet.tsx](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/components/tracker/add-food-sheet.tsx): prosty dialog porównania dwóch kart z 3 przyciskami powyżej, gdy `source === "off"` i `candidates.length > 0`.
+- [api.ts](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/lib/api.ts): add `resolveProductByBarcode(barcode, lang)` and `attachBarcodeToProduct(productId, payload)`.
+- [add-food-sheet.tsx](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/components/tracker/add-food-sheet.tsx): add side-by-side comparison modal when `source === "off"` and `candidates.length > 0`.

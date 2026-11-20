@@ -8,7 +8,7 @@
 
 > **Mobile-first calorie and macro diary** featuring a multimodal AI meal assistant, real-time 1:1 partner sync, barcode scanning with Open Food Facts fallback, and a multi-source nutrition catalog.
 
-Built as a full-stack personal nutrition platform combining a **Next.js 16 + TypeScript** PWA frontend with an **ASP.NET Core 10 + EF Core (SQLite)** REST API, secured by **Clerk JWT** authentication and backed by **66 automated integration and UI tests**.
+Built as a full-stack personal nutrition platform combining a **Next.js 16 + TypeScript** PWA frontend with an **ASP.NET Core 10 + EF Core (SQLite)** REST API, secured by **Clerk JWT** authentication and backed by **68 automated integration and UI tests**.
 
 ---
 
@@ -24,7 +24,7 @@ Built as a full-stack personal nutrition platform combining a **Next.js 16 + Typ
 
 * **Multimodal AI Meal Assistant & Label OCR** (`Gemini` + `OpenAI` fallback)
   * Parse natural-language meal descriptions, recipes, handwritten notes, or nutrition label photos into structured ingredients with live macro recalculation.
-  * Automatically separates multi-plate or multi-meal inputs into independent tabs, supports iterative AI refinement (`Popraw z AI`) and single-ingredient recalculation, and matches ingredients against the local product database before creating new entries.
+  * Automatically separates multi-plate or multi-meal inputs into independent tabs, supports iterative AI refinement (`Refine with AI`) and single-ingredient recalculation in the active UI language (`en` / `pl`), and matches ingredients against the local product database before creating new entries.
   * Save either as a single combined dish entry or as individual database entries split across portions, dates, and partner diaries.
 * **Hybrid Food Catalog & Barcode Scanner**
   * Local SQLite catalog enriched via a custom Python ETL pipeline combining **CIQUAL**, **USDA**, and **Open Food Facts** datasets, plus Polish diacritic normalization and 90-day personal usage frequency ranking.
@@ -34,7 +34,7 @@ Built as a full-stack personal nutrition platform combining a **Next.js 16 + Typ
   * View and log meals into your partner's diary while preserving an explicit `CreatedByUserId` audit trail on every entry.
 * **Serving Units, Custom Goals & Historical Integrity**
   * Per-product serving units (`portion`, `package`, `slice`, `spoon`, etc.) with personal recently-used serving quick rows.
-  * Daily kcal and macro targets persisted per user, plus bilingual UI support (Polish / English) and installable PWA configuration.
+  * Daily kcal and macro targets persisted per user, language-aware Open Food Facts lookups (`lc=en` / `lc=pl`), full English / Polish UI localization, and installable PWA configuration.
 
 ---
 
@@ -74,7 +74,7 @@ flowchart LR
    * *Tradeoff:* Keeps search latency predictable even on SQLite while surfacing relevant local foods immediately without external network dependency.
 4. **Isolated Full-Stack Test Harness ([CustomWebApplicationFactory.cs](backend/Piccolo.Api.Tests/Helpers/CustomWebApplicationFactory.cs))**
    * *Decision:* Replace file-backed SQLite, Clerk JWKS validation, and live Open Food Facts HTTP calls with an in-memory SQLite connection, `TestAuthHandler`, and `MockOpenFoodFactsService` in xUnit, and mock `fetch`/Clerk in Vitest.
-   * *Tradeoff:* Enables deterministic, zero-secret CI runs across all 66 tests in seconds.
+   * *Tradeoff:* Enables deterministic, zero-secret CI runs across all 68 tests in seconds.
 
 ---
 
@@ -86,7 +86,7 @@ flowchart LR
 | **Backend** | ASP.NET Core 10, Entity Framework Core 10, SQLite, JWT Bearer Authentication |
 | **Auth & AI** | Clerk (`@clerk/nextjs` + JWKS verification), Google Gemini Vision API, OpenAI Vision API |
 | **Data & ETL** | Python 3 ETL pipeline (`tools/catalog-etl/`), C# `CatalogImporter` CLI, Open Food Facts API |
-| **Testing & CI** | xUnit + `WebApplicationFactory` (51 tests), Vitest + React Testing Library (15 tests), GitHub Actions |
+| **Testing & CI** | xUnit + `WebApplicationFactory` (51 tests), Vitest + React Testing Library (17 tests), GitHub Actions |
 
 ---
 
@@ -98,7 +98,7 @@ All suites run completely offline with mocked external dependencies:
 # Backend integration tests (51 xUnit tests)
 dotnet test backend/Piccolo.Api.Tests
 
-# Frontend typecheck & unit/component tests (15 Vitest tests across 5 files)
+# Frontend typecheck & unit/component tests (17 Vitest tests across 5 files)
 cd frontend
 npm run typecheck
 npm test

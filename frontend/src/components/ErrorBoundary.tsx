@@ -65,7 +65,7 @@ export class ErrorBoundary extends Component<Props, State> {
               marginBottom: '0.75rem',
               color: '#F3F4F6',
             }}>
-              Wystąpił błąd aplikacji
+              Application error
             </h1>
             
             <p style={{
@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
               color: '#9CA3AF',
               marginBottom: '1.5rem',
             }}>
-              Aplikacja napotkała nieoczekiwany problem. Może to być spowodowane przez:
+              The application encountered an unexpected error. This may be caused by:
             </p>
 
             <ul style={{
@@ -84,9 +84,9 @@ export class ErrorBoundary extends Component<Props, State> {
               marginBottom: '1.5rem',
               paddingLeft: '1.25rem',
             }}>
-              <li>Problemy z połączeniem sieciowym (Mixed Content przy tunelu HTTPS)</li>
-              <li>Backend niedostępny lub nie odpowiada</li>
-              <li>Błąd w kodzie aplikacji</li>
+              <li>Network connection issues (or Mixed Content on HTTPS tunnels)</li>
+              <li>Backend API unreachable or not responding</li>
+              <li>An unexpected client runtime error</li>
             </ul>
 
             {this.state.error && (
@@ -104,7 +104,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   color: '#D1D5DB',
                   marginBottom: '0.5rem',
                 }}>
-                  Szczegóły techniczne
+                  Technical details
                 </summary>
                 <pre style={{
                   whiteSpace: 'pre-wrap',
@@ -138,7 +138,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onMouseOver={(e) => e.currentTarget.style.background = '#2563EB'}
               onMouseOut={(e) => e.currentTarget.style.background = '#3B82F6'}
             >
-              Odśwież stronę
+              Reload page
             </button>
           </div>
         </div>

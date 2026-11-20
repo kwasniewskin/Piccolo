@@ -26,7 +26,7 @@ namespace Piccolo.Api.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            // Dla istniejących wpisów, ustaw CreatedByUserId = UserId
+            // Backfill CreatedByUserId = UserId for existing diary entries
             migrationBuilder.Sql(
                 "UPDATE DiaryEntries SET CreatedByUserId = UserId WHERE CreatedByUserId = 0");
 

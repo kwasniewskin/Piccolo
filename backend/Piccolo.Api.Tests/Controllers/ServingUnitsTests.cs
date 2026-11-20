@@ -9,8 +9,8 @@ using Xunit;
 namespace Piccolo.Api.Tests.Controllers;
 
 /// <summary>
-/// Testy jednostek produktu (ProductUnits), zapisu jednostki we wpisie dziennika
-/// i endpointu historii użycia (GET /api/diary/product-usage/{productId}).
+/// Integration tests for product serving units (ProductUnits), diary entry unit metadata,
+/// and the usage history endpoint (GET /api/diary/product-usage/{productId}).
 /// </summary>
 public class ServingUnitsTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -60,9 +60,9 @@ public class ServingUnitsTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Theory]
-    [InlineData("slice", 0f)]    // waga musi być > 0
+    [InlineData("slice", 0f)]    // weight must be > 0
     [InlineData("slice", -5f)]
-    [InlineData("", 100f)]       // nazwa jednostki nie może być pusta
+    [InlineData("", 100f)]       // unit key cannot be empty
     public async Task CreateProduct_WithInvalidUnit_ReturnsBadRequest(string unitKey, float grams)
     {
         var product = ProductTestHelper.CreateValidProduct($"Invalid Unit {Guid.NewGuid()}");
@@ -153,12 +153,12 @@ public class ServingUnitsTests : IClassFixture<CustomWebApplicationFactory>
     {
         var product = await CreateProductAsync(("slice", 16.7f));
 
-        // Od najstarszego do najnowszego. "portion" 4 razy, "g" 1 raz, "slice" 1 raz.
+        // Oldest to newest: "portion" 4x, "g" 1x, "slice" 1x.
         await AddEntryAsync(product.Id, "portion", 1, 100, "2026-11-01");
         await AddEntryAsync(product.Id, "portion", 3, 300, "2026-11-02");
         await AddEntryAsync(product.Id, "g", 50, 50, "2026-11-03");
         await AddEntryAsync(product.Id, "portion", 2, 200, "2026-11-04");
-        await AddEntryAsync(product.Id, "portion", 2, 200, "2026-11-05"); // ta sama kombinacja co wyżej
+        await AddEntryAsync(product.Id, "portion", 2, 200, "2026-11-05"); // duplicate of previous pair
         await AddEntryAsync(product.Id, "slice", 2, 33.4, "2026-11-06");
 
         var usage = await (await _client.GetAsync($"/api/diary/product-usage/{product.Id}"))
@@ -172,7 +172,7 @@ public class ServingUnitsTests : IClassFixture<CustomWebApplicationFactory>
 
         usage.MostUsed.Should().NotBeNull();
         usage.MostUsed!.UnitKey.Should().Be("portion");
-        usage.MostUsed.Quantity.Should().Be(2); // ostatnio wpisana ilość w tej jednostce
+        usage.MostUsed.Quantity.Should().Be(2); // most recently logged quantity for this unit
     }
 
     [Fact]

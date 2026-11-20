@@ -3,28 +3,28 @@
 import { cn } from '@/lib/utils'
 
 type Props = {
-  /** Wartość w gramach */
+  /** Value in grams */
   grams: number
-  /** Procent wypełnienia (0-100) */
+  /** Fill percentage (0-100) */
   percentage: number
-  /** Etykieta makroskładnika */
+  /** Macro label */
   label: string
-  /** Kolor krzywa (nazwa klasy Tailwind) */
+  /** Arc stroke color (Tailwind utility class) */
   colorClass: string
 }
 
 /**
- * Wykres kołowy pokazujący makroskładnik.
- * Pierścień jest wypełniony proporcjonalnie do procentu kalorii z tego makro.
+ * Circular ring chart showing a single macronutrient.
+ * Filled proportionally to its percentage of the daily calorie target.
  */
 export function MacroCircle({ grams, percentage, label, colorClass }: Props) {
-  // Parametry okręgu SVG
+  // SVG circle geometry parameters
   const size = 72
   const strokeWidth = 5
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   
-  // Offset dla efektu wypełnienia (odwrócony, bo SVG rysuje od góry zgodnie z ruchem wskazówek)
+  // Stroke dash offset (inverted because SVG draws clockwise from 12 o'clock)
   const offset = circumference - (percentage / 100) * circumference
 
   return (
@@ -36,7 +36,7 @@ export function MacroCircle({ grams, percentage, label, colorClass }: Props) {
           className="-rotate-90"
           aria-hidden="true"
         >
-          {/* Tło (szary okrąg) */}
+          {/* Track background ring */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -46,7 +46,7 @@ export function MacroCircle({ grams, percentage, label, colorClass }: Props) {
             strokeWidth={strokeWidth}
             className="text-secondary"
           />
-          {/* Wypełnienie (kolorowy łuk) */}
+          {/* Filled progress arc */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -60,7 +60,7 @@ export function MacroCircle({ grams, percentage, label, colorClass }: Props) {
             className={cn('transition-all duration-500', colorClass)}
           />
         </svg>
-        {/* Wartość w gramach na środku */}
+        {/* Centered gram value */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="font-heading text-base font-bold tabular-nums">
             {grams.toFixed(1)}
@@ -68,7 +68,7 @@ export function MacroCircle({ grams, percentage, label, colorClass }: Props) {
           </span>
         </div>
       </div>
-      {/* Etykieta i procent */}
+      {/* Macro label and percentage */}
       <div className="flex flex-col items-center gap-0.5">
         <dt className="text-[10px] text-muted-foreground">{label}</dt>
         <dd className="text-xs font-medium tabular-nums text-foreground">

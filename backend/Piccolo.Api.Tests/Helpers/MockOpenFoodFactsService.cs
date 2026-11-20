@@ -18,7 +18,7 @@ public class MockOpenFoodFactsService : OpenFoodFactsService
     /// <summary>
     /// Mock implementation - returns empty list to avoid external API calls.
     /// </summary>
-    public new Task<List<Product>> SearchByNameAsync(string name)
+    public override Task<List<Product>> SearchByNameAsync(string name, string lang = "pl")
     {
         return Task.FromResult(new List<Product>());
     }
@@ -26,7 +26,7 @@ public class MockOpenFoodFactsService : OpenFoodFactsService
     /// <summary>
     /// Mock implementation - returns null to avoid external API calls.
     /// </summary>
-    public new Task<Product?> GetByBarcodeAsync(string barcode)
+    public override Task<Product?> GetByBarcodeAsync(string barcode, string lang = "pl")
     {
         return Task.FromResult<Product?>(null);
     }

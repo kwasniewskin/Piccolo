@@ -6,7 +6,7 @@ import { usePartner } from '@/lib/partner-context'
 import { useLanguage } from '@/lib/language-context'
 import { getTranslation } from '@/lib/i18n'
 
-/** Dyskretny pasek na górze: nazwa aplikacji + auth + partner switcher + przycisk ustawień. */
+/** Subtle top bar: app name, auth controls, partner switcher, and settings button. */
 export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { isSignedIn, isLoaded } = useUser()
   const { isViewingPartner, connectionStatus, switchToPartner, switchToSelf } = usePartner()

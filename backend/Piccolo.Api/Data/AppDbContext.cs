@@ -5,7 +5,7 @@ using Piccolo.Api.Services;
 namespace Piccolo.Api.Data;
 
 /// <summary>
-/// Kontekst bazy danych aplikacji Piccolo.
+/// Entity Framework Core database context for Piccolo.
 /// </summary>
 public class AppDbContext : DbContext
 {
@@ -67,14 +67,14 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         
-        // Konfiguracja User
+        // User configuration
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasIndex(u => u.ClerkUserId).IsUnique();
             entity.HasIndex(u => u.Email);
         });
         
-        // Konfiguracja PairingCode
+        // PairingCode configuration
         modelBuilder.Entity<PairingCode>(entity =>
         {
             entity.HasIndex(p => p.Code).IsUnique();
@@ -87,17 +87,17 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
         
-        // Konfiguracja UserConnection
+        // UserConnection configuration
         modelBuilder.Entity<UserConnection>(entity =>
         {
             entity.HasIndex(uc => new { uc.User1Id, uc.User2Id }).IsUnique();
             entity.HasIndex(uc => uc.Status);
             
-            // Relacje User1 i User2
+            // User1 and User2 relationships
             entity.HasOne(uc => uc.User1)
                 .WithMany()
                 .HasForeignKey(uc => uc.User1Id)
-                .OnDelete(DeleteBehavior.Restrict); // Zapobiegamy kaskadowemu usunięciu
+                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete cycles
             
             entity.HasOne(uc => uc.User2)
                 .WithMany()
@@ -105,43 +105,43 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
         
-        // Konfiguracja relacji Product -> DiaryEntry (1:N)
+        // Product -> DiaryEntry relationship (1:N)
         modelBuilder.Entity<DiaryEntry>(entity =>
         {
             entity.HasOne(d => d.Product)
                 .WithMany(p => p.DiaryEntries)
                 .HasForeignKey(d => d.ProductId)
-                .OnDelete(DeleteBehavior.SetNull) // Zmieniono z Cascade na SetNull bo ProductId jest teraz opcjonalny
-                .IsRequired(false); // ProductId może być null
+                .OnDelete(DeleteBehavior.SetNull) // SetNull because ProductId is optional for custom entries
+                .IsRequired(false); // ProductId may be null
             
-            // Konfiguracja relacji User -> DiaryEntry (1:N)
+            // User -> DiaryEntry relationship (1:N)
             entity.HasOne(d => d.User)
                 .WithMany(u => u.DiaryEntries)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
             
-            // Indeksy dla wydajności
+            // Query performance indexes
             entity.HasIndex(d => d.Date);
             entity.HasIndex(d => d.ProductId);
             entity.HasIndex(d => d.UserId);
             entity.HasIndex(d => d.CreatedByUserId);
-            entity.HasIndex(d => new { d.UserId, d.Date }); // Composite index dla najczęstszego query
+            entity.HasIndex(d => new { d.UserId, d.Date }); // Composite index for the most common diary query
         });
         
-        // Konfiguracja relacji Product -> ProductUnit (1:N)
+        // Product -> ProductUnit relationship (1:N)
         modelBuilder.Entity<ProductUnit>(entity =>
         {
             entity.HasOne(u => u.Product)
                 .WithMany(p => p.Units)
                 .HasForeignKey(u => u.ProductId)
-                .OnDelete(DeleteBehavior.Cascade); // Kaskadowe usuwanie jednostek przy usunięciu produktu
+                .OnDelete(DeleteBehavior.Cascade); // Cascade-delete serving units with parent product
             
-            // Indeksy
+            // Indexes
             entity.HasIndex(u => u.ProductId);
-            entity.HasIndex(u => new { u.ProductId, u.UnitKey }); // Composite index dla wyszukiwania jednostek produktu
+            entity.HasIndex(u => new { u.ProductId, u.UnitKey }); // Composite index for unit lookups
         });
 
-        // Konfiguracja Category
+        // Category configuration
         modelBuilder.Entity<Category>(entity =>
         {
             entity.HasIndex(c => c.Slug).IsUnique();
@@ -151,7 +151,7 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Konfiguracja Product
+        // Product configuration
         modelBuilder.Entity<Product>(entity =>
         {
             entity.HasIndex(p => p.SearchName);
@@ -170,7 +170,7 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // Konfiguracja ProductSourceRef
+        // ProductSourceRef configuration
         modelBuilder.Entity<ProductSourceRef>(entity =>
         {
             entity.HasIndex(r => new { r.Source, r.ExternalId }).IsUnique();

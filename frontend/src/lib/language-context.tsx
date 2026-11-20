@@ -47,3 +47,15 @@ export function useLanguage() {
   }
   return context
 }
+
+const FALLBACK_LANGUAGE_CONTEXT: LanguageContextType = {
+  language: 'pl',
+  setLanguage: () => {},
+}
+
+/**
+ * Returns the active language context or falls back to Polish when rendered outside LanguageProvider (e.g. unit tests).
+ */
+export function useOptionalLanguage() {
+  return useContext(LanguageContext) ?? FALLBACK_LANGUAGE_CONTEXT
+}

@@ -12,7 +12,7 @@ type GeneratingState = {
   expiresAt: string
 }
 
-/** Co ile ms sprawdzamy, czy partner wpisał nasz kod. */
+/** Polling interval (ms) while waiting for a partner to redeem the pairing code. */
 const CONNECTION_POLL_INTERVAL_MS = 3000
 
 export function PartnerSettings() {
@@ -27,12 +27,12 @@ export function PartnerSettings() {
   const [error, setError] = useState<string | null>(null)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
 
-  // Wejście w sekcję: odśwież status (partner mógł się połączyć, gdy byliśmy gdzie indziej)
+  // Refresh status on mount (the partner might have linked while we were away)
   useEffect(() => {
     refreshConnection({ silent: true })
   }, [refreshConnection])
 
-  // Polling, dopóki pokazujemy kod i czekamy na partnera
+  // Poll while the pairing code is displayed and awaiting partner acceptance
   useEffect(() => {
     if (view !== 'generating' || !generatingState) return
     const interval = setInterval(() => {
@@ -41,7 +41,7 @@ export function PartnerSettings() {
     return () => clearInterval(interval)
   }, [view, generatingState, refreshConnection])
 
-  // Po połączeniu (np. wykrytym przez polling) wyczyść lokalny stan parowania
+  // Clear local pairing state once connected (e.g. detected via polling)
   useEffect(() => {
     if (connectionStatus !== 'connected') return
     setView('main')
@@ -50,7 +50,7 @@ export function PartnerSettings() {
     setError(null)
   }, [connectionStatus])
 
-  // Countdown do wygaśnięcia kodu
+  // Expiration countdown timer
   useEffect(() => {
     if (!generatingState) return
 
@@ -71,7 +71,7 @@ export function PartnerSettings() {
     updateCountdown()
     const interval = setInterval(updateCountdown, 1000)
     return () => clearInterval(interval)
-    // `t` celowo pomijamy w zależnościach – zmienia się co render, a liczy się tylko kod
+    // `t` intentionally omitted from deps - changes every render, only code matters
   }, [generatingState])
 
   const handleGenerateCode = async () => {
@@ -102,12 +102,12 @@ export function PartnerSettings() {
     const result = await api.acceptPairingCode(acceptCode.trim())
     
     if (result.success) {
-      // Ciche odświeżenie: bez migania spinnera; kontekst pokaże toast „Połączono z …”
+      // Silent refresh avoids spinner flicker; context displays the connection toast
       await refreshConnection({ silent: true })
       setView('main')
       setAcceptCode('')
     } else {
-      // Komunikaty backendu są po polsku – w innych językach pokazujemy ogólny tekst
+      // Backend messages are localized on the server; show generic i18n fallback for non-Polish UI
       setError(language === 'pl' && result.error ? result.error : t('partner-error-accept'))
     }
     
@@ -162,7 +162,7 @@ export function PartnerSettings() {
     )
   }
 
-  // Stan: Connected
+  // State: Connected
   if (connectionStatus === 'connected' && partnerInfo) {
     return (
       <div className="flex flex-col gap-4 p-4">
@@ -196,7 +196,7 @@ export function PartnerSettings() {
     )
   }
 
-  // Stan: Generating code
+  // State: Generating code
   if (view === 'generating' && generatingState) {
     return (
       <div className="flex flex-col gap-4 p-4">
@@ -244,7 +244,7 @@ export function PartnerSettings() {
     )
   }
 
-  // Stan: Accepting code
+  // State: Accepting code
   if (view === 'accepting') {
     return (
       <div className="flex flex-col gap-4 p-4">
@@ -302,7 +302,7 @@ export function PartnerSettings() {
     )
   }
 
-  // Stan: Main (none)
+  // State: Main (none)
   return (
     <div className="flex flex-col gap-4 p-4">
       <p className="px-2 text-center text-sm text-muted-foreground">

@@ -3,34 +3,30 @@ using System.Text.Json.Serialization;
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Jednostka miary zdefiniowana dla konkretnego produktu (np. plaster, sztuka, łyżka).
-/// Waga jest zawsze podawana per produkt – nie ma globalnych "domyślnych" wag,
-/// bo łyżka miodu waży inaczej niż łyżka mąki.
-/// Użytkownik może podać DOWOLNĄ nazwę jednostki.
+/// Custom serving unit defined per product (e.g. slice, piece, tbsp).
+/// Grams are always specified per product because unit weights vary by food.
+/// Users may enter any custom unit name.
 /// </summary>
 public class ProductUnit
 {
     public int Id { get; set; }
     
     /// <summary>
-    /// Klucz jednostki (jeden z <see cref="AllowedKeys"/>).
-    /// Frontend mapuje klucze na etykiety po polsku.
+    /// Unit key mapped to localized labels by the frontend.
     /// </summary>
     public required string UnitKey { get; set; }
     
     /// <summary>
-    /// Ile gramów waży jedna jednostka dla tego produktu.
-    /// Np. dla sera topionego: plaster = 16.7g, dla szynki: plaster = 10g.
+    /// Weight in grams for one unit of this product (e.g. cheese slice = 16.7g, ham slice = 10g).
     /// </summary>
     public float GramsPerUnit { get; set; }
     
     /// <summary>
-    /// ID produktu, do którego należy ta jednostka.
+    /// Parent product ID.
     /// </summary>
     public int ProductId { get; set; }
     
-    // Navigation property – ignorowana w JSON, żeby klient nie musiał jej wysyłać
-    // (inaczej walidacja modelu wymagałaby pola "product" w każdej jednostce).
+    // Ignored in JSON so clients do not need to serialize the back-reference on POST/PUT.
     [JsonIgnore]
     public Product? Product { get; set; }
 }

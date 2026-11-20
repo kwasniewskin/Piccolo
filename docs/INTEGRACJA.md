@@ -1,172 +1,52 @@
-# ✅ INTEGRACJA FRONTEND Z BACKEND - ZAKOŃCZONA
+# Frontend-Backend Integration Summary
 
-## Wykonane zadania
+## Completed Work
 
-### 1. ✅ Utworzono warstwę API (`frontend/src/lib/api.ts`)
-- Bazowy URL: `http://localhost:5022/api`
-- Funkcje komunikacji z backendem:
-  - `searchProducts(query)` - wyszukiwanie produktów
-  - `getDiaryEntries(date)` - pobieranie wpisów dziennika dla daty
-  - `createDiaryEntry(...)` - dodawanie nowego wpisu
-  - `deleteDiaryEntry(id)` - usuwanie wpisu
-  - `getProductById(id)` - pobieranie pojedynczego produktu
-  - Cache produktów w pamięci dla wydajności
+### 1. API Client Layer (`frontend/src/lib/api.ts`)
+- Connects directly to the ASP.NET Core backend (`http://<host>:5022/api`)
+- Core client functions:
+  - `searchProducts(query, lang)` - searches local catalog and Open Food Facts
+  - `getDiaryEntries(date, targetUserId)` - fetches diary entries for a date
+  - `createDiaryEntry(...)` - logs product-backed or custom Quick Add entries
+  - `deleteDiaryEntry(id)` - removes a diary entry
+  - `getProductById(id)` - fetches a single product by ID
+  - In-memory product cache to avoid redundant network requests
 
-### 2. ✅ Robustna obsługa błędów
-**Wszystkie zapytania do API są zabezpieczone:**
-- ✅ Bloki `try/catch` we wszystkich funkcjach API
-- ✅ Błędy sieciowe (serwer niedostępny) → zwracają puste tablice/null, nie crashują aplikacji
-- ✅ Błędy HTTP (4xx, 5xx) → logowane w konsoli, obsługiwane łagodnie
-- ✅ Puste wyniki wyszukiwania → wyświetlany komunikat "Brak wyników dla '{query}'"
-- ✅ Komunikaty o błędach w UI (znikają po 3 sekundach)
-- ✅ Wskaźnik ładowania podczas pobierania danych
+### 2. Defensive Error Handling
+- All API calls wrap network and parsing logic in `try/catch` blocks
+- Network failures return safe fallbacks (`[]` or `null`) without crashing the UI
+- HTTP errors (`4xx`, `5xx`) are logged clearly and surfaced via non-intrusive toast/banner messages
+- Empty search queries return the local product list cleanly; unmatched queries display an explicit empty state
 
-### 3. ✅ Zmodyfikowano komponenty React
+### 3. React UI Components
 
 #### `calorie-tracker.tsx`
-- Usunięto zależność od `mock-data`
-- Dodano stan: `loading`, `error`, `products` (z cache)
-- `useEffect` automatycznie ładuje wpisy przy zmianie daty
-- `handleAdd()` - wysyła POST do API i odświeża stan
-- `handleRemove()` - wysyła DELETE do API i odświeża stan
-- Produkty są ładowane dynamicznie i cachowane
+- Loads real entries, product metadata, and macro goals from the API
+- Manages `loading`, `error`, and cached `products` state
+- Supports seamless switching between the user's diary and a linked partner's diary
 
 #### `add-food-sheet.tsx`
-- Usunięto prop `products`
-- Dodano stany: `searchResults`, `searching`
-- Wyszukiwanie przez API z debounce (300ms)
-- Komunikaty UI:
-  - "Wyszukiwanie..." podczas ładowania
-  - "Brak wyników dla '{query}'" gdy lista pusta
+- Debounced search (300 ms) querying local database + Open Food Facts in the active UI language (`en` / `pl`)
+- Supports barcode scanning, Quick Add, custom product creation, and the AI Meal Assistant
 
-### 4. ✅ Usunięto dane testowe
-- Usunięto plik `frontend/src/lib/mock-data.ts`
-- Usunięto wszystkie importy i użycia mocków
-- Weryfikacja: brak odniesień w całym projekcie ✅
+### 4. Local Run & LAN Access
 
-### 5. ✅ Płynne odświeżanie danych
-- Po dodaniu wpisu → automatyczne dodanie do lokalnego stanu
-- Po usunięciu wpisu → automatyczne usunięcie z lokalnego stanu
-- Zmiana daty → automatyczne pobranie wpisów z API
-- Cache produktów → minimalizacja zapytań do API
-
-## 🔧 Technikalia
-
-### Obsługa błędów - przykład
-```typescript
-export async function searchProducts(query: string): Promise<Product[]> {
-  if (!query.trim()) return []
-  
-  try {
-    const response = await fetch(`${API_BASE}/products/search?query=${encodeURIComponent(query)}`)
-    if (!response.ok) {
-      console.error(`[API] Product search failed: ${response.status}`)
-      return [] // Nie crashuj, zwróć pustą tablicę
-    }
-    const data: ApiProduct[] = await response.json()
-    return data.map(toFrontendProduct)
-  } catch (error) {
-    console.error('[API] Network error:', error)
-    return [] // Błąd sieciowy - też nie crashuj
-  }
-}
-```
-
-### Komunikaty użytkownika w UI
-```tsx
-{state.error && (
-  <div className="mx-4 mt-3 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-600">
-    {state.error}
-  </div>
-)}
-```
-
-## ✅ Weryfikacja
-
-### Kompilacja
-```bash
-cd frontend
-npm run build
-```
-**Wynik:** ✅ Compiled successfully in 481ms
-
-### Backend API
-```bash
-# Wyszukiwanie produktów
-curl http://localhost:5022/api/products/search?query=Ban
-```
-**Wynik:** ✅ Zwraca: `[{"id":4,"name":"Banana",...}]`
-
-```bash
-# Pobieranie dziennika
-curl http://localhost:5022/api/diary?date=2026-10-05
-```
-**Wynik:** ✅ Zwraca tablicę wpisów z zagnieżdżonymi produktami
-
-### Baza danych
-- ✅ 21 produktów w bazie (dodane przez `seed-products.ps1`)
-- ✅ Backend nasłuchuje na `http://localhost:5022`
-- ✅ Frontend nasłuchuje na `http://localhost:3000`
-
-## 🚀 Uruchamianie
-
-### Backend
+#### Backend
 ```bash
 cd backend/Piccolo.Api
-dotnet run
+dotnet run --launch-profile http
 ```
 
-### Frontend
+#### Frontend
 ```bash
 cd frontend
-npm run dev
+npm run dev:lan
 ```
 
-### Dostęp z telefonu (LAN)
-1. Znajdź IP komputera: `ipconfig` (np. 192.168.1.100)
-2. Zmień w `api.ts`:
-   ```typescript
-   const API_BASE = 'http://192.168.1.100:5022/api'
-   ```
-3. Otwórz na telefonie: `http://192.168.1.100:3000`
+Access from a mobile device on the same LAN at `http://<your-local-ip>:3000` (API calls dynamically target `http://<hostname>:5022/api`).
 
-## 📝 Uwagi
+## Search Behavior Notes
 
-### Case-sensitivity w wyszukiwaniu
-Backend używa SQLite `LIKE`, który jest case-sensitive:
-- ✅ "Ban" znajdzie "Banana"
-- ❌ "banana" nie znajdzie "Banana"
-
-Jeśli chcesz case-insensitive search, możesz:
-1. Zmienić backend na `WHERE LOWER(p.Name) LIKE LOWER(@query)`
-2. Lub użytkownik wpisuje pierwszą literę wielką (domyślne w mobile keyboards)
-
-### Cache produktów
-Produkty są cachowane lokalnie w `Map<number, Product>`, dzięki czemu:
-- Nie pobieramy wielokrotnie tego samego produktu
-- Wyszukiwanie działa offline dla już załadowanych produktów
-- Cache jest globalny w sesji przeglądarki
-
-## ✅ Checklist finalna
-
-- [x] Plik `api.ts` utworzony
-- [x] Robustna obsługa błędów we wszystkich funkcjach API
-- [x] Komponenty zmodyfikowane do używania API
-- [x] Plik `mock-data.ts` usunięty
-- [x] Brak importów mock-data w projekcie
-- [x] Aplikacja kompiluje się bez błędów
-- [x] Backend działa na port 5022
-- [x] Frontend działa na port 3000
-- [x] Wyszukiwanie produktów działa
-- [x] Dodawanie wpisów działa
-- [x] Usuwanie wpisów działa
-- [x] Puste wyniki pokazują "Brak wyników"
-- [x] Błędy sieciowe nie crashują aplikacji
-- [x] Komunikaty o błędach w UI
-- [x] Automatyczne odświeżanie po dodaniu/usunięciu
-
-## 🎉 Podsumowanie
-
-Aplikacja jest w pełni zintegrowana z backendem. Wszystkie dane pochodzą z prawdziwego API, brak zależności od mocków. Obsługa błędów jest robustna - aplikacja nie "wysypuje" się na błędach sieciowych, a użytkownik otrzymuje czytelne komunikaty o problemach.
-
-Frontend jest gotowy do pracy na telefonie przez LAN bez blokad CORS.
+- Product search uses normalized lowercase diacritic-insensitive matching (`SearchTextHelper` + `SearchName`) across product names, brands, and manufacturers.
+- Results prioritize verified local catalog entries before appending Open Food Facts candidates.
+- Products already fetched or logged are cached in memory per session for instant navigation.

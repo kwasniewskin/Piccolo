@@ -1,45 +1,45 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Połączenie między dwoma użytkownikami (relacja partnerska 1:1).
-/// Jeden rekord reprezentuje dwukierunkową relację.
+/// 1:1 partner connection between two users.
+/// A single record represents a bidirectional link.
 /// </summary>
 public class UserConnection
 {
     public int Id { get; set; }
     
     /// <summary>
-    /// ID pierwszego użytkownika w połączeniu.
+    /// ID of the first user in the connection.
     /// </summary>
     public int User1Id { get; set; }
     
     /// <summary>
-    /// ID drugiego użytkownika w połączeniu.
+    /// ID of the second user in the connection.
     /// </summary>
     public int User2Id { get; set; }
     
     /// <summary>
-    /// Status połączenia (Pending, Accepted, Disconnected).
+    /// Current connection status (Pending, Accepted, Disconnected).
     /// </summary>
     public ConnectionStatus Status { get; set; }
     
     /// <summary>
-    /// Który użytkownik utworzył zaproszenie (User1Id lub User2Id).
+    /// User who initiated the pairing invite (User1Id or User2Id).
     /// </summary>
     public int CreatedByUserId { get; set; }
     
     /// <summary>
-    /// Data utworzenia połączenia/zaproszenia.
+    /// Connection creation timestamp (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     /// <summary>
-    /// Data zaakceptowania połączenia (null jeśli Status != Accepted).
+    /// Acceptance timestamp (null unless Status == Accepted).
     /// </summary>
     public DateTime? ConnectedAt { get; set; }
     
     /// <summary>
-    /// Data rozłączenia (null jeśli Status != Disconnected).
+    /// Disconnection timestamp (null unless Status == Disconnected).
     /// </summary>
     public DateTime? DisconnectedAt { get; set; }
     

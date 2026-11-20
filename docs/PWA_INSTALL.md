@@ -1,58 +1,43 @@
-# PWA Installation Guide / Instrukcja instalacji PWA
+# PWA Installation Guide
 
-## Jak zainstalować Piccolo jako aplikację mobilną
+## How to Install Piccolo on Mobile
 
 ### iOS (Safari)
-1. Otwórz stronę w przeglądarce Safari
-2. Kliknij przycisk **Udostępnij** (kwadrat ze strzałką w dół) na dolnym pasku
-3. Przewiń w dół i wybierz **"Dodaj do ekranu głównego"**
-4. Możesz zmienić nazwę aplikacji (domyślnie "Piccolo")
-5. Kliknij **"Dodaj"**
+1. Open the app in Safari
+2. Tap the **Share** button in the bottom toolbar
+3. Scroll down and tap **"Add to Home Screen"**
+4. Optionally customize the app name (default: `"Piccolo"`)
+5. Tap **"Add"**
 
-Aplikacja pojawi się na ekranie głównym jako ikona i uruchomi się **bez paska przeglądarki** w trybie pełnoekranowym.
+Piccolo will appear on your Home Screen and launch in standalone mode without browser chrome.
 
 ### Android (Chrome)
-1. Otwórz stronę w przeglądarce Chrome
-2. Chrome automatycznie wyświetli banner **"Dodaj do ekranu głównego"** - kliknij go
-   
-   *Alternatywnie:*
-   - Kliknij menu (trzy kropki ⋮) w prawym górnym rogu
-   - Wybierz **"Dodaj do ekranu głównego"** lub **"Zainstaluj aplikację"**
-3. Potwierdź instalację
+1. Open the app in Chrome
+2. Tap the **"Add to Home Screen"** / **"Install app"** prompt when displayed
 
-Aplikacja uruchomi się w trybie standalone **bez paska adresu i przycisków przeglądarki**.
+   *Or manually:*
+   - Open the browser menu (`⋮`) in the top-right corner
+   - Tap **"Add to Home Screen"** or **"Install app"**
+3. Confirm installation
 
-## Co zostało zaimplementowane
+The app opens in standalone mode without an address bar or browser navigation controls.
 
-✅ **PWA Manifest** (`public/manifest.json`)
-- Tryb `standalone` - aplikacja działa bez paska przeglądarki
-- Ikony i kolory dopasowane do aplikacji
-- Orientacja pionowa zablokowana dla lepszego UX
+## Implemented PWA Configuration
 
-✅ **Ukryty overlay z błędami Next.js**
-- Dodano CSS w `globals.css` ukrywający kafelek z błędami
-- Wyłączono `reactStrictMode` w konfiguracji Next.js
-- Wyłączono wskaźniki deweloperskie
+- **Web App Manifest** (`public/manifest.json`):
+  - `display: "standalone"`
+  - App icons and dark-theme surface colors
+  - Portrait orientation lock for mobile ergonomics
+- **Next.js Viewport & Meta Tags** (`app/layout.tsx`):
+  - Apple web-app capable configuration
+  - `viewportFit: cover` support for notched displays
+  - Dark `themeColor` matching the application palette
+- **Mobile Polish**:
+  - Disabled accidental pinch-zoom (`maximumScale: 1, userScalable: false`)
+  - Full-bleed edge-to-edge layout without white flashbars
 
-✅ **Meta tagi dla PWA**
-- `apple-web-app-capable` - iOS rozpoznaje jako aplikację
-- `viewport` z właściwymi ustawieniami dla mobile
-- `theme-color` dopasowany do ciemnego motywu
-- `viewportFit: cover` - obsługa iPhone'ów z notchem
+## Verification
 
-✅ **Optymalizacje mobile**
-- Zablokowany zoom (`maximumScale: 1, userScalable: false`)
-- Pełny ekran bez białych pasków
-- Dopasowany kolor paska statusu
-
-## Testowanie
-
-Po uruchomieniu dev servera (`npm run dev:lan`):
-1. Otwórz aplikację na telefonie pod adresem z konsoli (np. `http://192.168.100.5:3000`)
-2. Kafelek z błędami **nie powinien się już wyświetlać**
-3. Dodaj stronę do ekranu głównego (instrukcje powyżej)
-4. Uruchom z ikony - aplikacja otworzy się **bez paska przeglądarki**
-
-## Uwagi
-- W trybie development nadal mogą pojawić się błędy w konsoli przeglądarki (F12), ale overlay jest ukryty
-- Po produkcyjnym buildzie (`npm run build && npm start`) wszystkie błędy deweloperskie znikną całkowicie
+1. Run the LAN dev server (`npm run dev:lan`) or production build (`npm run build && npm start`)
+2. Open the app on your phone
+3. Install to the Home Screen using the steps above and verify standalone launch

@@ -27,8 +27,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  // Aplikacja używa ciemnego motywu – ustawiamy to jawnie, żeby przeglądarka
-  // mogła dostosować UI systemowy (np. pasek adresu na telefonie).
+  // The app uses a dark theme; set it explicitly so browsers adapt system UI (e.g. mobile address bar).
   colorScheme: 'dark',
   themeColor: '#1d2028',
   width: 'device-width',

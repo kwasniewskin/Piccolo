@@ -15,19 +15,19 @@ if (args.Length >= 1 && args[0] == "import-catalog")
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// Konfiguracja Entity Framework Core z SQLite
+// Configure Entity Framework Core with SQLite
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=piccolo.db"));
 
-// Rejestracja serwisów
+// Register application services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PartnerService>();
 
-// Rejestracja HttpClient dla OpenFoodFactsService
+// Register typed HttpClient for OpenFoodFactsService
 builder.Services.AddHttpClient<OpenFoodFactsService>();
 
-// Konfiguracja Clerk JWT Authentication
+// Configure Clerk JWT authentication
 var clerkAuthority = new[]
 {
     builder.Configuration["Clerk:Authority"],
@@ -45,19 +45,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuer = !string.IsNullOrWhiteSpace(clerkAuthority),
             ValidIssuer = clerkAuthority,
-            ValidateAudience = false, // Clerk nie używa audience claim
+            ValidateAudience = false, // Clerk does not set an audience claim by default
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            // Clerk automatycznie pobiera klucze publiczne z JWKS endpoint
+            // Clerk automatically exposes public signing keys via JWKS
         };
     });
 
 builder.Services.AddAuthorization();
 
-// Konfiguracja JSON serialization
+// Configure JSON serialization
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    // Konwersja enum do kebab-case (np. SecondBreakfast -> "second-breakfast")
+    // Serialize enums as kebab-case (e.g. SecondBreakfast -> "second-breakfast")
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower));
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 });
@@ -68,7 +68,7 @@ if (allowedOrigins == null || allowedOrigins.Length == 0)
     allowedOrigins = new[] { "http://localhost:3000", "http://localhost:3001" };
 }
 
-// Konfiguracja CORS
+// Configure CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -76,7 +76,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials();  // Umożliwia wysyłanie credentials (sesje Clerk)
+            .AllowCredentials(); // Allow credentials (Clerk sessions)
     });
 });
 
@@ -84,7 +84,7 @@ builder.Services.AddCors(options =>
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Rejestracja kontrolerów z obsługą cyklicznych referencji i enum w kebab-case
+// Register MVC controllers with cycle handling and kebab-case enum serialization
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
@@ -100,16 +100,16 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Włączenie CORS
+// Enable CORS
 app.UseCors();
 
 app.UseHttpsRedirection();
 
-// WAŻNE: Autentykacja i autoryzacja muszą być przed MapControllers
+// Authentication and authorization must run before MapControllers
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Mapowanie kontrolerów
+// Map API controllers
 app.MapControllers();
 
 app.Run();

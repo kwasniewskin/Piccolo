@@ -1,19 +1,17 @@
 /**
- * Typy domenowe aplikacji.
+ * Domain types for the application.
  *
- * `Product` i `DiaryEntry` odwzorowują encje z backendu (ASP.NET Core + EF Core),
- * z tymi samymi nazwami pól (camelCase – tak domyślnie serializuje System.Text.Json).
- * Dzięki temu podpięcie API sprowadzi się do podmiany źródła danych,
- * bez zmian w komponentach.
+ * `Product` and `DiaryEntry` mirror the backend entities (ASP.NET Core + EF Core)
+ * with matching camelCase property names (default System.Text.Json serialization).
  */
 
-/** Pora posiłku. W backendzie: pole `MealType` w encji `DiaryEntry`. */
+/** Meal slot. Backend equivalent: `MealType` property on `DiaryEntry`. */
 export type MealType = 'breakfast' | 'second-breakfast' | 'lunch' | 'snack' | 'dinner'
 
-/** Klucze jednostek wspieranych przez backend. Może być dowolny string. */
+/** Serving unit keys supported by the backend (any non-empty string). */
 export type UnitKey = 'g' | 'ml' | 'portion' | 'package' | string
 
-/** Jednostka zdefiniowana dla konkretnego produktu (np. plaster sera = 16,7 g). */
+/** Product-specific serving unit definition (e.g., cheese slice = 16.7 g). */
 export type ProductUnit = {
   id: number
   unitKey: UnitKey
@@ -21,7 +19,7 @@ export type ProductUnit = {
   productId: number
 }
 
-/** Produkt z bazy – wartości odżywcze zawsze podane na 100 g (lub 100 ml). */
+/** Product entity - nutrition values are always per 100 g (or 100 ml). */
 export type Product = {
   id: number
   name: string
@@ -30,7 +28,7 @@ export type Product = {
   fatPer100g: number
   carbsPer100g: number
 
-  // --- Pola z backendu (hybrydowe wyszukiwanie + Open Food Facts) ---
+  // --- Backend fields (hybrid local search + Open Food Facts) ---
   barcode?: string
   brand?: string
   saturatedFatPer100g?: number
@@ -44,28 +42,28 @@ export type Product = {
   ingredients?: string
   units?: ProductUnit[]
 
-  // --- Pola tylko frontendowe ---
-  /** Jednostka wyświetlana w UI. */
+  // --- Frontend-only fields ---
+  /** Unit displayed in UI. */
   unit: 'g' | 'ml'
-  /** Domyślna porcja proponowana przy dodawaniu. */
+  /** Default serving size suggested when adding to diary. */
   defaultServing: number
 }
 
-/** Pojedynczy wpis w dzienniku: „zjadłem X gramów produktu Y w dniu Z”. */
+/** Single diary entry: "ate X grams of product Y on date Z". */
 export type DiaryEntry = {
   id: number
-  productId?: number // Opcjonalny - może być null dla szybkich wpisów
+  productId?: number // Optional - null for Quick Add entries
   amountInGrams: number
-  unitKey?: string // Jednostka, w której użytkownik wprowadził wpis (np. "portion")
-  unitQuantity?: number // Ilość w tej jednostce (np. 3)
-  /** Data w formacie `YYYY-MM-DD` (bez godziny – liczy się tylko dzień). */
+  unitKey?: string // Unit chosen by the user (e.g., "portion")
+  unitQuantity?: number // Quantity in that unit (e.g., 3)
+  /** Date in `YYYY-MM-DD` format (date-only). */
   date: string
   mealType: MealType
-  /** Właściciel dziennika (wewnętrzne ID z backendu). */
+  /** Diary owner (internal backend user ID). */
   userId?: number
-  /** Kto fizycznie dodał wpis – różny od `userId`, gdy dodał go partner. */
+  /** Who physically logged the entry - differs from `userId` when logged by partner. */
   createdByUserId?: number
-  // Pola dla szybkich wpisów (bez produktu w bazie)
+  // Fields for Quick Add entries (not linked to a catalog product)
   customName?: string
   customCalories?: number
   customProtein?: number
@@ -73,7 +71,7 @@ export type DiaryEntry = {
   customCarbs?: number
 }
 
-/** Wyliczone makroskładniki dla konkretnej ilości produktu. */
+/** Calculated macronutrients for a specific product quantity. */
 export type Macros = {
   kcal: number
   protein: number
@@ -82,24 +80,23 @@ export type Macros = {
 }
 
 /**
- * Wpis dziennika „połączony” z produktem – gotowy do wyświetlenia.
- * Backend w przyszłości może zwracać to od razu (np. z endpointu /api/diary/today).
+ * Diary entry joined with its product metadata, ready for UI display.
  */
 export type DiaryEntryView = DiaryEntry &
   Macros & {
     productName: string
-    unit: Product['unit'] | ''  // Pusty string dla custom entries (szybkie dodanie)
-    displayLabel?: string  // Etykieta z jednostką użytą przez użytkownika, np. "3 × porcja (50 g)"
+    unit: Product['unit'] | ''  // Empty string for custom entries (Quick Add)
+    displayLabel?: string  // Formatted label with serving unit, e.g., "3 × portion (50 g)"
   }
 
-/** Wiersz szybkiego dodawania produktu (np. "1 × porcja" → 16,7 g → 45 kcal). */
+/** Quick-add serving row (e.g., "1 × portion" -> 16.7 g -> 45 kcal). */
 export type ServingOption = {
   unitKey: UnitKey
   quantity: number
   grams: number
 }
 
-/** Historia użycia jednostek dla danego produktu przez użytkownika. */
+/** Per-product serving unit usage history for the current user. */
 export type ProductUsage = {
   recent: ServingUsageDto[]
   mostUsed?: ServingUsageDto

@@ -20,7 +20,7 @@ public class PartnerController : ControllerBase
     }
 
     /// <summary>
-    /// Generuje kod parowania do połączenia z partnerem.
+    /// Generates a pairing code for connecting with a partner.
     /// POST /api/partner/generate-code
     /// </summary>
     [HttpPost("generate-code")]
@@ -37,7 +37,7 @@ public class PartnerController : ControllerBase
     }
 
     /// <summary>
-    /// Akceptuje kod parowania i łączy konto z partnerem.
+    /// Accepts a pairing code and links accounts with the partner.
     /// POST /api/partner/accept-code
     /// </summary>
     [HttpPost("accept-code")]
@@ -57,7 +57,7 @@ public class PartnerController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera informacje o aktywnym połączeniu (jeśli istnieje).
+    /// Returns the active partner connection, if one exists.
     /// GET /api/partner/connection
     /// </summary>
     [HttpGet("connection")]
@@ -77,7 +77,7 @@ public class PartnerController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera informacje o partnerze.
+    /// Returns profile details of the connected partner.
     /// GET /api/partner/info
     /// </summary>
     [HttpGet("info")]
@@ -100,7 +100,7 @@ public class PartnerController : ControllerBase
     }
 
     /// <summary>
-    /// Rozłącza połączenie z partnerem.
+    /// Disconnects the active partner link.
     /// DELETE /api/partner/disconnect
     /// </summary>
     [HttpDelete("disconnect")]
@@ -128,10 +128,9 @@ public class PartnerController : ControllerBase
     };
 
     /// <summary>
-    /// SQLite nie przechowuje DateTimeKind, więc daty odczytane z bazy mają Kind=Unspecified
-    /// i serializują się bez "Z". Przeglądarka traktuje je wtedy jako czas lokalny
-    /// (np. UTC+1), przez co świeży kod wyglądał na wygasły. Wszystkie daty zapisujemy
-    /// jako DateTime.UtcNow, więc oznaczenie ich jako UTC jest bezpieczne.
+    /// SQLite does not persist DateTimeKind, so timestamps read back have Kind=Unspecified
+    /// and serialize without a trailing "Z", causing browsers to treat them as local time.
+    /// All timestamps are persisted as UTC, so explicitly marking them as UTC is safe.
     /// </summary>
     private static DateTime AsUtc(DateTime value) =>
         value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);

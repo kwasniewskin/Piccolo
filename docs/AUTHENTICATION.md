@@ -1,29 +1,29 @@
-# Autentykacja w Piccolo
+# Authentication in Piccolo
 
-System autentykacji został zaimplementowany przy użyciu **Clerk** - nowoczesnej platformy autentykacyjnej z wbudowanym UI.
+Authentication is powered by **Clerk** with pre-built UI components and JWT session verification.
 
-## Przegląd architektury
+## Architecture Overview
 
 ### Frontend (Next.js)
-- **ClerkProvider** opakowuje całą aplikację w `layout.tsx`
-- **Middleware** (`middleware.ts`) chroni wszystkie trasy poza publicznymi (`/sign-in`, `/sign-up`)
-- **Komponenty Clerk** w TopBar pokazują stan logowania:
-  - Przyciski Sign In / Sign Up gdy użytkownik niezalogowany
-  - UserButton (avatar + menu) gdy użytkownik zalogowany
-- **API Layer** (`lib/api.ts`) automatycznie dołącza JWT token do wszystkich requestów
+- **ClerkProvider** wraps the application in `app/layout.tsx`
+- **Middleware** (`middleware.ts`) protects all routes outside public auth routes (`/sign-in`, `/sign-up`)
+- **Clerk components** in `TopBar` reflect sign-in state:
+  - Sign In / Sign Up buttons when signed out
+  - `UserButton` (avatar + account menu) when signed in
+- **API layer** (`lib/api.ts`) automatically attaches the Clerk JWT token to backend requests
 
 ### Backend (ASP.NET Core)
-- **JWT Authentication** zintegrowany w `Program.cs`
-- Weryfikuje tokeny JWT wydane przez Clerk
-- **UserService** (`Services/UserService.cs`) zarządza użytkownikami:
-  - Tworzy użytkownika w lokalnej bazie przy pierwszym logowaniu
-  - Mapuje Clerk User ID → lokalny User ID
-- **Kontrolery** wymagają autoryzacji przez `[Authorize]`
-- Dane są filtrowane per użytkownik (każdy widzi tylko swoje wpisy)
+- **JWT Bearer authentication** configured in `Program.cs`
+- Validates JWT tokens issued by Clerk
+- **UserService** (`Services/UserService.cs`) manages local users:
+  - Provisions a local user record on first authenticated request
+  - Maps the Clerk User ID to the internal integer `User.Id`
+- **Controllers** enforce authorization via `[Authorize]`
+- All diary queries and mutations are scoped strictly to the authenticated user (or an explicitly paired partner)
 
-## Konfiguracja
+## Configuration
 
-### Zmienne środowiskowe (Frontend)
+### Environment Variables (Frontend)
 ```env
 # .env.local
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
@@ -32,7 +32,7 @@ NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 ```
 
-### Konfiguracja JWT (Backend)
+### JWT Configuration (Backend)
 ```json
 // appsettings.json
 {
@@ -43,50 +43,50 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 }
 ```
 
-Upewnij się, że w Clerk Dashboard:
-1. JWT Template ma ustawiony `Audience` = `piccolo-api`
-2. CORS dla backendu jest włączony
+Ensure in the Clerk Dashboard:
+1. Your JWT template includes `Audience` = `piccolo-api`
+2. CORS allows requests from the frontend origin
 
-## Przepływ autentykacji
+## Authentication Flow
 
-### 1. Użytkownik loguje się
+### 1. User Sign-In
 ```
 User → Clerk UI → Clerk API → JWT Token → Browser (cookie/localStorage)
 ```
 
-### 2. Request do backendu
+### 2. Backend Request
 ```
 Frontend (api.ts)
-  → getAuthToken() pobiera token z Clerk
-  → fetch() z header Authorization: Bearer <token>
-  → Backend weryfikuje token JWT
-  → UserService.GetOrCreateUserAsync() tworzy/pobiera użytkownika
-  → Kontroler zwraca dane dla tego użytkownika
+  → getAuthToken() fetches JWT from Clerk
+  → fetch() sends Authorization: Bearer <token>
+  → Backend validates JWT signature and claims
+  → UserService.GetOrCreateUserAsync() resolves or creates the local user
+  → Controller returns data scoped to that user
 ```
 
-### 3. Tworzenie użytkownika w bazie
-Przy pierwszym requestie z nowym tokenem:
+### 3. Local User Provisioning
+On the first authenticated request with a new Clerk token:
 ```
 UserService
-  → Odczytuje ClerkUserId z JWT claims
-  → Sprawdza czy User z tym ClerkUserId istnieje
-  → Jeśli nie: tworzy nowy rekord User
-  → Zwraca User.Id dla kontrolera
+  → Reads ClerkUserId from JWT claims
+  → Looks up existing User by ClerkUserId
+  → If absent: inserts a new User record
+  → Returns User.Id to the controller
 ```
 
-## Model danych
+## Data Model
 
-### User (baza lokalna)
+### User (Local Database)
 ```csharp
 public class User
 {
-    public int Id { get; set; }              // Lokalny ID
-    public string ClerkUserId { get; set; }  // ID z Clerk (np. "user_2...")
+    public int Id { get; set; }              // Internal primary key
+    public string ClerkUserId { get; set; }  // Clerk user ID (e.g. "user_2...")
     public DateTime CreatedAt { get; set; }
 }
 ```
 
-### DiaryEntry (z relacją do User)
+### DiaryEntry (Linked to User)
 ```csharp
 public class DiaryEntry
 {
@@ -96,109 +96,75 @@ public class DiaryEntry
     public string MealType { get; set; }
     public int ProductId { get; set; }
     public double AmountInGrams { get; set; }
-    
+
     public User User { get; set; }           // Navigation property
     public Product Product { get; set; }
 }
 ```
 
-## Endpointy API
+## API Endpoints
 
-Wszystkie endpointy wymagają nagłówka:
+All endpoints require:
 ```
 Authorization: Bearer <clerk-jwt-token>
 ```
 
-### Produkty
-- `GET /api/products/search?query=mleko` - wyszukuje produkty
-- `GET /api/products/{id}` - pobiera produkt po ID
+### Products
+- `GET /api/products/search?name=milk` - searches local database and Open Food Facts
+- `GET /api/products/{id}` - fetches a single product by ID
 
-### Dziennik
-- `GET /api/diary?date=2026-10-06` - pobiera wpisy dla danego użytkownika i daty
-- `POST /api/diary` - tworzy wpis dla zalogowanego użytkownika
-- `DELETE /api/diary/{id}` - usuwa wpis (tylko jeśli należy do użytkownika)
+### Diary
+- `GET /api/diary?date=2026-10-06` - fetches entries for the authenticated user (or paired partner) and date
+- `POST /api/diary` - creates a diary entry
+- `DELETE /api/diary/{id}` - deletes an entry belonging to the user or their partner
 
-## Bezpieczeństwo
+## Security Highlights
 
 ### Frontend
-✅ Token JWT przechowywany przez Clerk (bezpieczne cookie)
-✅ Automatyczne odświeżanie tokenu
-✅ Protected routes przez middleware
-✅ Brak ręcznego zarządzania tokenami
+- JWT stored and rotated automatically by Clerk
+- Protected routes enforced by Next.js middleware
+- No manual token persistence in custom storage
 
 ### Backend
-✅ JWT weryfikowany przez ASP.NET Core Identity
-✅ Wymuszony attribute `[Authorize]` na kontrolerach
-✅ Filtrowanie danych per użytkownik
-✅ Brak dostępu do danych innych użytkowników
+- Cryptographic JWT verification handled by ASP.NET Core JwtBearer
+- `[Authorize]` required across API controllers
+- Strict per-user / paired-partner authorization checks
 
-### Ważne zasady
-❌ **Nigdy** nie commituj `.env.local` z kluczami Clerk
-❌ **Nigdy** nie udostępniaj `CLERK_SECRET_KEY`
-✅ Użyj różnych kluczy dla dev/production
-✅ Rotuj klucze regularnie w Clerk Dashboard
+### Operational Rules
+- **Never** commit `.env.local` or `appsettings.Local.json` containing real credentials
+- **Never** expose `CLERK_SECRET_KEY` on the client
+- Use separate keys for development and production environments
+- Rotate keys regularly in the Clerk Dashboard
 
-## Testowanie
+## Local Verification
 
-### Lokalnie
-1. Uruchom backend: `cd backend/Piccolo.Api && dotnet run`
-2. Uruchom frontend: `cd frontend && npm run dev`
-3. Otwórz http://localhost:3000
-4. Kliknij "Sign In" i zaloguj się przez Clerk
-5. Po zalogowaniu zobaczysz avatar w prawym górnym rogu
-6. Dodaj produkt - zostanie zapisany z Twoim UserId
+1. Start backend: `cd backend/Piccolo.Api && dotnet run`
+2. Start frontend: `cd frontend && npm run dev`
+3. Open `http://localhost:3000`
+4. Sign in via Clerk
+5. Once authenticated, the user avatar appears in the top bar
+6. Log a food item — it is saved with your internal `UserId`
 
-### Weryfikacja w bazie
+### Database Inspection
 ```sql
 SELECT * FROM Users;
 SELECT * FROM DiaryEntries WHERE UserId = 1;
 ```
 
-## Migracja istniejących danych
-
-Jeśli masz starą bazę bez kolumny `UserId`:
-```bash
-cd backend/Piccolo.Api
-dotnet ef migrations add AddUserSupport
-dotnet ef database update
-```
-
-Uwaga: Stare wpisy zostaną usunięte (nie mają powiązanego użytkownika).
-
-## Rozszerzanie
-
-### Dodawanie nowych pól do User
-1. Zaktualizuj `Models/User.cs`
-2. Dodaj migrację: `dotnet ef migrations add AddUserFields`
-3. Zastosuj: `dotnet ef database update`
-
-### Pobieranie dodatkowych danych z Clerk
-UserService może pobierać email, imię itp. z JWT claims:
-```csharp
-var email = User.FindFirst(ClaimTypes.Email)?.Value;
-var name = User.FindFirst(ClaimTypes.Name)?.Value;
-```
-
 ## Troubleshooting
 
-### "401 Unauthorized" na wszystkich requestach
-- Sprawdź czy `CLERK_SECRET_KEY` jest w `.env.local`
-- Sprawdź czy middleware Clerk działa (console.log w getAuthHeaders)
-- Sprawdź czy backend weryfikuje tokeny (logi w UserService)
+### `401 Unauthorized` on every request
+- Verify `CLERK_SECRET_KEY` and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` are set in `.env.local`
+- Check Clerk middleware execution and `getAuthHeaders()`
+- Inspect backend authentication logs
 
-### Backend nie akceptuje tokenu
-- Upewnij się, że `Clerk:Authority` w `appsettings.json` jest poprawny
-- Sprawdź czy JWT Template w Clerk ma ustawiony audience `piccolo-api`
+### Backend rejects valid tokens
+- Confirm `Clerk:Authority` matches your Clerk instance URL
+- Confirm the Clerk JWT template sets the expected audience / issuer
 
-### Użytkownik widzi dane innych użytkowników
-- **Krytyczny błąd bezpieczeństwa!**
-- Sprawdź czy kontrolery filtrują po `userId` z UserService
-- Nigdy nie ufaj `userId` z requestu - zawsze pobieraj z tokenu JWT
-
-## Linki
+## References
 
 - [Clerk Documentation](https://clerk.com/docs)
-- [Clerk + Next.js](https://clerk.com/docs/nextjs/getting-started/quickstart)
-- [ASP.NET Core JWT Auth](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
+- [Clerk + Next.js Quickstart](https://clerk.com/docs/nextjs/getting-started/quickstart)
+- [ASP.NET Core JWT Bearer Authentication](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/)
 - [Clerk Dashboard](https://dashboard.clerk.com/)
-

@@ -71,7 +71,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
     }
   }, [open, goals])
 
-  // ESC zamyka panel
+  // ESC closes the panel
   useEffect(() => {
     if (!open) return
     const handleEscape = (e: KeyboardEvent) => {
@@ -87,7 +87,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [open, view, onClose])
 
-  // --- Walidacja formularza kalorii ---------------------------------------------
+  // --- Calorie goals form validation -----------------------------------------
   const parsed = Object.fromEntries(
     FIELDS.map((f) => [f.key, parseField(values[f.key], f.max)]),
   ) as Record<FieldKey, number | null>

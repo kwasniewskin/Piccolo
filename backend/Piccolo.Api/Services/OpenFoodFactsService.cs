@@ -5,7 +5,7 @@ using Piccolo.Api.Models;
 namespace Piccolo.Api.Services;
 
 /// <summary>
-/// Serwis do komunikacji z API Open Food Facts.
+/// Client service for the Open Food Facts REST API.
 /// </summary>
 public class OpenFoodFactsService
 {
@@ -18,40 +18,57 @@ public class OpenFoodFactsService
         _logger = logger;
     }
 
+    private static string NormalizeLanguage(string? lang) =>
+        string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "pl";
+
     /// <summary>
-    /// Wyszukuje produkty po nazwie w bazie Open Food Facts.
+    /// Searches for products by name in the Open Food Facts catalog.
+    /// Queries the fast Search-a-licious API first and falls back to legacy cgi/search.pl if needed.
     /// </summary>
-    public async Task<List<Product>> SearchByNameAsync(string name)
+    public virtual async Task<List<Product>> SearchByNameAsync(string name, string lang = "pl")
     {
         try
         {
-            var url = $"https://world.openfoodfacts.org/cgi/search.pl?search_terms={Uri.EscapeDataString(name)}&search_simple=1&action=process&json=1&page_size=15&lc=pl";
-            var response = await _httpClient.GetAsync(url);
-            
-            if (!response.IsSuccessStatusCode)
+            var lc = NormalizeLanguage(lang);
+            var urls = new[]
             {
-                _logger.LogWarning("OFF API search returned status {StatusCode}", response.StatusCode);
-                return new List<Product>();
+                $"https://search.openfoodfacts.org/search?q={Uri.EscapeDataString(name)}&page_size=15&langs={lc}",
+                $"https://world.openfoodfacts.org/cgi/search.pl?search_terms={Uri.EscapeDataString(name)}&search_simple=1&action=process&json=1&page_size=15&lc={lc}",
+            };
+
+            foreach (var url in urls)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.UserAgent.ParseAdd("PiccoloNutritionTracker/1.0");
+                var response = await _httpClient.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("OFF API search ({Url}) returned status {StatusCode}", url, response.StatusCode);
+                    continue;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var searchResult = JsonSerializer.Deserialize<OffSearchResponse>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                var items = searchResult?.Hits ?? searchResult?.Products;
+                if (items == null || items.Count == 0)
+                {
+                    continue;
+                }
+
+                // Smart sorting: prioritize products containing an exact substring match
+                return items
+                    .Where(p => !string.IsNullOrWhiteSpace(p.ProductName))
+                    .Select(MapToProduct)
+                    .OrderByDescending(p => p.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
             }
 
-            var json = await response.Content.ReadAsStringAsync();
-            var searchResult = JsonSerializer.Deserialize<OffSearchResponse>(json, new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true
-            });
-
-            if (searchResult?.Products == null)
-            {
-                return new List<Product>();
-            }
-
-            // Smart Sorting: produkty z dokładnym dopasowaniem nazwy na górze
-            var searchTermLower = name.ToLower();
-            return searchResult.Products
-                .Where(p => !string.IsNullOrWhiteSpace(p.ProductName))
-                .Select(MapToProduct)
-                .OrderByDescending(p => p.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            return new List<Product>();
         }
         catch (Exception ex)
         {
@@ -61,13 +78,14 @@ public class OpenFoodFactsService
     }
 
     /// <summary>
-    /// Pobiera produkt po kodzie kreskowym z Open Food Facts.
+    /// Fetches a product by barcode from Open Food Facts.
     /// </summary>
-    public async Task<Product?> GetByBarcodeAsync(string barcode)
+    public virtual async Task<Product?> GetByBarcodeAsync(string barcode, string lang = "pl")
     {
         try
         {
-            var url = $"https://world.openfoodfacts.org/api/v2/product/{barcode}?lc=pl";
+            var lc = NormalizeLanguage(lang);
+            var url = $"https://world.openfoodfacts.org/api/v2/product/{barcode}?lc={lc}";
             var response = await _httpClient.GetAsync(url);
             
             if (!response.IsSuccessStatusCode)
@@ -119,8 +137,8 @@ public class OpenFoodFactsService
     }
 
     /// <summary>
-    /// OFF zwraca pola ilości raz jako liczbę (250), raz jako tekst ("250" lub "16,7").
-    /// Ten konwerter akceptuje oba warianty; nieparsowalne wartości dają null.
+    /// OFF returns quantity fields either as numbers (250) or strings ("250" or "16,7").
+    /// Accepts both formats and yields null for unparseable values.
     /// </summary>
     private class FlexibleFloatConverter : JsonConverter<float?>
     {
@@ -147,10 +165,49 @@ public class OpenFoodFactsService
         }
     }
 
+    /// <summary>
+    /// OFF returns brands either as a comma-separated string or a string array depending on the API version.
+    /// Normalizes both shapes into a nullable string.
+    /// </summary>
+    private class FlexibleBrandsConverter : JsonConverter<string?>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String:
+                    return reader.GetString();
+                case JsonTokenType.StartArray:
+                    var list = new List<string>();
+                    while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+                    {
+                        if (reader.TokenType == JsonTokenType.String)
+                        {
+                            var val = reader.GetString()?.Trim();
+                            if (!string.IsNullOrEmpty(val)) list.Add(val);
+                        }
+                    }
+                    return list.Count > 0 ? string.Join(", ", list) : null;
+                default:
+                    reader.Skip();
+                    return null;
+            }
+        }
+
+        public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+        {
+            if (value != null) writer.WriteStringValue(value);
+            else writer.WriteNullValue();
+        }
+    }
+
     #region DTO Classes for Open Food Facts API
 
     private class OffSearchResponse
     {
+        [JsonPropertyName("hits")]
+        public List<OffProduct>? Hits { get; set; }
+
         [JsonPropertyName("products")]
         public List<OffProduct>? Products { get; set; }
     }
@@ -170,6 +227,7 @@ public class OpenFoodFactsService
         public string? Code { get; set; }
 
         [JsonPropertyName("brands")]
+        [JsonConverter(typeof(FlexibleBrandsConverter))]
         public string? Brands { get; set; }
 
         [JsonPropertyName("image_url")]

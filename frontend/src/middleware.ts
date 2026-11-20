@@ -3,10 +3,10 @@ import { clerkMiddleware } from "@clerk/nextjs/server";
 export default clerkMiddleware(async (auth, req) => {
   const pathname = req.nextUrl.pathname;
   
-  // Publiczne ścieżki - tylko strony logowania i rejestracji
+  // Public routes - only sign-in and sign-up pages
   const isPublicPath = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
   
-  // Jeśli to nie jest publiczna ścieżka, wymuś autoryzację
+  // Enforce authentication for all non-public routes
   if (!isPublicPath) {
     const { userId, redirectToSignIn } = await auth();
     if (!userId) {

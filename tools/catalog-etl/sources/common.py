@@ -104,7 +104,7 @@ class NormalizedProduct:
 
 
 def sanitize_and_validate(p: NormalizedProduct) -> NormalizedProduct:
-    """Waliduje spójność makroskładników i oznacza błędy jakościowe."""
+    """Validates macro consistency and flags data-quality issues."""
     if not p.original_name:
         p.issues.append(("error", "empty_name"))
         p.rejected = True

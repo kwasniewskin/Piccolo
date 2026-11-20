@@ -1,305 +1,105 @@
-# Partner Sync - Funkcjonalność Współdzielenia Dziennika
+# Partner Sync Feature - Specification & Implementation
 
-## Przegląd
+1:1 partner synchronization enabling couples or trusted companions to share and collaborate on daily calorie diaries.
 
-Partner Sync pozwala dwóm użytkownikom na współdzielenie swoich dzienników żywieniowych. Jest to kluczowa funkcjonalność dla par i współlokatorów, którzy gotują razem i chcą łatwo zarządzać swoimi posiłkami.
+## Architecture Overview
 
-## Architektura
+### Data Model
 
-### Model Relacji (1:1)
-- System obsługuje **ściśle relację 1:1** - jeden użytkownik może być połączony z jednym partnerem na raz
-- Rekord w bazie jest **dwukierunkowy** - jeden wpis w `UserConnections` reprezentuje połączenie między dwoma użytkownikami
-
-### Tabele Bazy Danych
-
-#### UserConnections
+#### 1. `UserConnection`
+Stores bilateral 1:1 relationships between two users.
 ```csharp
 public class UserConnection
 {
     public int Id { get; set; }
-    public int User1Id { get; set; }          // Pierwszy użytkownik
-    public int User2Id { get; set; }          // Drugi użytkownik
-    public ConnectionStatus Status { get; set; }  // Pending, Accepted, Disconnected
-    public int CreatedByUserId { get; set; }  // Kto zainicjował połączenie
-    public DateTime CreatedAt { get; set; }
-    public DateTime? ConnectedAt { get; set; }    // Kiedy zaakceptowano
-    public DateTime? DisconnectedAt { get; set; } // Kiedy rozłączono
-}
-
-public enum ConnectionStatus
-{
-    Pending = 0,
-    Accepted = 1,
-    Disconnected = 2
+    public int User1Id { get; set; }           // Pairing initiator
+    public int User2Id { get; set; }           // Pairing recipient
+    public ConnectionStatus Status { get; set; } // Pending, Accepted, Disconnected
+    public DateTime ConnectedAt { get; set; }
+    public DateTime? DisconnectedAt { get; set; }
 }
 ```
 
-#### PairingCodes
+#### 2. `PairingCode`
+Short-lived, single-use 6-character pairing codes (15-minute expiration).
 ```csharp
 public class PairingCode
 {
     public int Id { get; set; }
-    public string Code { get; set; }           // 6-cyfrowy kod (np. "ABC123")
+    public string Code { get; set; }         // e.g. "A3B9X2"
     public int CreatedByUserId { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime ExpiresAt { get; set; }    // Ważny 15 minut
-    public bool IsUsed { get; set; }           // Jednorazowy
-    public int? UsedByUserId { get; set; }
+    public DateTime ExpiresAt { get; set; }  // CreatedAt + 15 min
+    public bool IsUsed { get; set; }
     public DateTime? UsedAt { get; set; }
+    public int? UsedByUserId { get; set; }
 }
 ```
 
-#### DiaryEntry - Nowe Pole
-```csharp
-public class DiaryEntry
-{
-    // ... istniejące pola
-    public int CreatedByUserId { get; set; }   // Kto fizycznie dodał wpis
-    
-    // Różnica:
-    // UserId = dla kogo jest wpis (właściciel dziennika)
-    // CreatedByUserId = kto go dodał (może być partner)
-}
-```
+#### 3. `DiaryEntry.CreatedByUserId`
+Audit field tracking who physically logged each entry.
+- If user `A` adds an entry to partner `B`'s diary: `UserId = B`, `CreatedByUserId = A`.
+- In UI, when `createdByUserId !== userId`, an `"Added by ..."` attribution label is shown.
+
+---
 
 ## API Endpoints
 
-Wszystkie endpointy wymagają nagłówka:
-```
-Authorization: Bearer <clerk-jwt-token>
-```
+### Partner Endpoints (`/api/partner`)
 
-### 1. Generowanie Kodu Parowania
+#### 1. Generate Pairing Code
 ```http
 POST /api/partner/generate-code
+Authorization: Bearer <token>
 ```
+Creates a single-use 6-character code valid for 15 minutes (rejects if user already has an active partner).
 
-**Odpowiedź:**
-```json
-{
-  "code": "ABC123",
-  "expiresAt": "2026-10-29T15:30:00Z"
-}
-```
-
-### 2. Akceptacja Kodu Parowania
+#### 2. Accept Pairing Code
 ```http
 POST /api/partner/accept-code
+Authorization: Bearer <token>
 Content-Type: application/json
 
-{
-  "code": "ABC123"
-}
+{ "code": "A3B9X2" }
 ```
+Validates expiration, single-use status, prevents self-pairing, enforces 1:1 pairing constraint, and creates an `Accepted` `UserConnection`.
 
-**Odpowiedź (sukces):**
-```json
-{
-  "connectionId": 1,
-  "partnerId": 2,
-  "partnerName": "Jan Kowalski",
-  "partnerEmail": "jan@example.com",
-  "connectedAt": "2026-10-29T15:15:00Z"
-}
-```
-
-### 3. Pobieranie Aktywnych Połączeń
+#### 3. Get Current Connection
 ```http
-GET /api/partner/connections
+GET /api/partner/connection
+Authorization: Bearer <token>
 ```
+Returns active partner metadata or `404 Not Found` if not paired.
 
-**Odpowiedź:**
-```json
-[
-  {
-    "connectionId": 1,
-    "partnerId": 2,
-    "partnerName": "Jan Kowalski",
-    "partnerEmail": "jan@example.com",
-
-## Uprawnienia w Dzienniku
-
-### Pełny Dostęp CRUD
-Partner z zaakceptowanym połączeniem ma **pełny dostęp** do dziennika drugiej osoby:
-- ✅ Odczyt wpisów
-- ✅ Dodawanie nowych wpisów
-- ✅ Edycja istniejących wpisów
-- ✅ Usuwanie wpisów
-
-### Modyfikacje w DiaryController
-
-#### GET - Pobieranie dziennika partnera
+#### 4. Disconnect
 ```http
-GET /api/diary?date=2026-10-29&targetUserId=2
+DELETE /api/partner/disconnect
+Authorization: Bearer <token>
 ```
-- Jeśli `targetUserId` nie jest podane → zwraca dziennik zalogowanego użytkownika
-- Jeśli `targetUserId` jest podane → sprawdza uprawnienia i zwraca dziennik partnera
+Marks the active connection as `Disconnected` and revokes cross-diary access immediately.
 
-#### POST - Dodawanie wpisu dla partnera
-```http
-POST /api/diary
-Content-Type: application/json
+---
 
-{
-  "date": "2026-10-29",
-  "mealType": "Śniadanie",
-  "productId": 123,
-  "amountInGrams": 200,
-  "targetUserId": 2
-}
-```
-- Jeśli `targetUserId` nie jest podane → tworzy wpis dla zalogowanego użytkownika
-- Jeśli `targetUserId` jest podane → sprawdza uprawnienia i tworzy wpis dla partnera
-- Pole `CreatedByUserId` automatycznie ustawiane na ID zalogowanego użytkownika
+### Full CRUD Access Across Shared Diaries
 
-#### PUT - Edycja wpisu
-```http
-PUT /api/diary/{id}
-```
-- Sprawdza, czy wpis należy do zalogowanego użytkownika LUB jego partnera
+Once linked (`ConnectionStatus.Accepted`), both partners share access to:
+- **GET `/api/diary?date=YYYY-MM-DD&targetUserId={partnerId}`** — view partner diary
+- **POST `/api/diary`** with optional `targetUserId` — log entries to partner's diary (`CreatedByUserId` set automatically from JWT)
+- **PUT `/api/diary/{id}`** — edit entries owned by self or active partner
+- **DELETE `/api/diary/{id}`** — delete entries owned by self or active partner
 
-#### DELETE - Usuwanie wpisu
-```http
-DELETE /api/diary/{id}
-```
-- Sprawdza, czy wpis należy do zalogowanego użytkownika LUB jego partnera
+If access is revoked or unpaired, requests with `targetUserId` return `403 Forbidden`, and `PartnerProvider` automatically returns the UI to the user's own diary.
 
-## Przepływ Użytkownika
+---
 
-### 1. Parowanie (Backend)
-```
-Użytkownik A:
-  1. POST /api/partner/generate-code
-  2. Otrzymuje kod: "ABC123"
-  3. Pokazuje kod Użytkownikowi B (QR, SMS, etc.)
+## Frontend Integration (`PartnerContext`)
 
-Użytkownik B:
-  1. POST /api/partner/accept-code z body: {"code": "ABC123"}
-  2. System sprawdza kod i tworzy połączenie
-  3. Zwraca dane połączenia
-```
+- `activeUserId`: `partnerInfo.userId` when `isViewingPartner` is active, otherwise `undefined` (own diary).
+- Background polling + tab-focus refresh (`silent: true`) keeps pairing status up to date without spinner flicker.
+- **UI Color Shift**: toggles `data-viewing-partner="true"` on `<html>`, switching the theme accent palette from emerald green (own diary) to sky blue (partner's diary) across all views and portals.
 
-### 2. Korzystanie z Dziennika Partnera
-```
-Użytkownik A (zalogowany):
-  1. GET /api/partner/connections → otrzymuje partnerId=2
-  2. GET /api/diary?date=2026-10-29&targetUserId=2
-  3. POST /api/diary z targetUserId=2 → dodaje wpis dla partnera
-```
+## Security Guarantees
 
-### 3. Rozłączanie
-```
-Użytkownik A lub B:
-  1. DELETE /api/partner/disconnect/1
-  2. System usuwa dostęp do dzienników
-```
-
-## Bezpieczeństwo
-
-### Autoryzacja
-- ✅ Wszystkie endpointy wymagają JWT tokenu
-- ✅ `PartnerService.CanAccessDiaryAsync()` weryfikuje uprawnienia
-- ✅ Użytkownik może mieć tylko jedno aktywne połączenie (1:1)
-- ✅ Kody parowania są jednorazowe i wygasają po 15 minutach
-
-### Walidacja
-- ✅ Kod musi być aktywny (`IsUsed=false` i `ExpiresAt > Now`)
-- ✅ Użytkownik nie może połączyć się sam ze sobą
-- ✅ Użytkownik nie może mieć wielu aktywnych połączeń
-- ✅ Sprawdzanie uprawnień przed każdą operacją CRUD
-
-### Audit Trail
-- ✅ `CreatedByUserId` w DiaryEntry pokazuje, kto dodał wpis
-- ✅ `ConnectedAt` / `DisconnectedAt` w UserConnection
-- ✅ `UsedAt` / `UsedByUserId` w PairingCode
-
-## Integracja z Frontend
-
-### Context / Store
-Zalecany globalny stan:
-```typescript
-interface PartnerContext {
-  currentUserId: number;
-  activeUserId: number;
-  partnerId: number | null;
-  partnerName: string | null;
-  isViewingPartner: boolean;
-  switchToPartner: () => void;
-  switchToSelf: () => void;
-}
-```
-
-### Switcher w UI
-```typescript
-function DiaryHeader() {
-  const { isViewingPartner, partnerName } = usePartner();
-  
-  return (
-    <header className={isViewingPartner ? 'partner-theme' : 'self-theme'}>
-      <button>Mój Dziennik</button>
-      <button>Dziennik: {partnerName}</button>
-    </header>
-  );
-}
-```
-
-### Color Shift (CSS)
-```css
-.self-theme {
-  --accent-color: #6EE7B7;  /* Szmaragd */
-}
-
-.partner-theme {
-  --accent-color: #3B6DFF;  /* Błękit */
-}
-```
-
-## Testowanie
-
-### Scenariusz: Parowanie
-```bash
-# Użytkownik A generuje kod
-curl -X POST http://localhost:5022/api/partner/generate-code \
-  -H "Authorization: Bearer TOKEN_A"
-
-# Użytkownik B akceptuje kod
-curl -X POST http://localhost:5022/api/partner/accept-code \
-  -H "Authorization: Bearer TOKEN_B" \
-  -H "Content-Type: application/json" \
-  -d '{"code": "ABC123"}'
-```
-
-## Troubleshooting
-
-### 403 Forbidden przy dostępie do dziennika partnera
-- Sprawdź czy połączenie ma status `Accepted`
-- Sprawdź logi `PartnerService.CanAccessDiaryAsync()`
-
-### Kod parowania nie działa
-- Sprawdź czy kod nie wygasł (15 minut)
-- Sprawdź czy kod nie został już użyty
-
-## Przyszłe Rozszerzenia
-
-- **v1.1**: "Dodaj dla obojga" - bulk endpoint
-- **v1.2**: Notyfikacje real-time (SignalR)
-- **v1.3**: Rozbudowane uprawnienia (enum flags)
-
-    "status": "Accepted",
-    "connectedAt": "2026-10-29T15:15:00Z"
-  }
-]
-```
-
-### 4. Rozłączanie z Partnerem
-```http
-DELETE /api/partner/disconnect/{connectionId}
-```
-
-**Odpowiedź:**
-```json
-{
-  "success": true,
-  "message": "Połączenie zostało rozłączone"
-}
-```
+- All partner endpoints require `[Authorize]` JWT authentication.
+- `PartnerService.CanAccessDiaryAsync()` checks bidirectional active `Accepted` connection before every read or write.
+- 6-character alphanumeric pairing codes omit visually ambiguous characters, expire in 15 minutes, and cannot be reused.
+- `CreatedByUserId` always comes from the authenticated user's JWT claim, never from client input.
