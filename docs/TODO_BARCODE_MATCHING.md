@@ -1,7 +1,7 @@
 # TODO: Rozwiązywanie kolizji i przypisywanie kodów EAN z Open Food Facts (OFF) przy skanowaniu
 
 ## Cel
-Gdy użytkownik skanuje kod kreskowy (EAN), którego jeszcze nie ma w lokalnej bazie Piccolo, aplikacja pobiera produkt z Open Food Facts i sprawdza, czy taki produkt istnieje już u nas bez kodu EAN (np. z importu Fitatu). Zamiast tworzyć duplikat w bazie, użytkownik dostaje możliwość połączenia kodu EAN z istniejącym produktem albo świadomego dodania produktu z OFF jako nowego wpisu.
+Gdy użytkownik skanuje kod kreskowy (EAN), którego jeszcze nie ma w lokalnej bazie Piccolo, aplikacja pobiera produkt z Open Food Facts i sprawdza, czy taki produkt istnieje już u nas bez kodu EAN (np. z importu katalogowego). Zamiast tworzyć duplikat w bazie, użytkownik dostaje możliwość połączenia kodu EAN z istniejącym produktem albo świadomego dodania produktu z OFF jako nowego wpisu.
 
 ---
 
@@ -32,7 +32,7 @@ Użytkownik widzi obok siebie kartę **„Z Open Food Facts”** oraz kartę **�
    - Dopisuje `Barcode` do istniejącego rekordu w `Products`.
    - Uzupełnia **tylko puste pola** z OFF (`SaltPer100g`, `Ingredients`, `ImageUrl`, `PackageWeightGrams`, jeśli u nas są `null`).
    - Tworzy wpis w `ProductSourceRefs` (`Source = "OFF"`, `ExternalId = ean`).
-   - Zachowuje nasze sprawdzone makroskładniki i domowe jednostki z Fitatu.
+   - Zachowuje nasze sprawdzone makroskładniki i domowe jednostki z lokalnego katalogu.
 2. **„Połącz z produktem z bazy i nadpisz wartości z OFF”** *(gdy receptura/tabela na etykiecie w OFF jest nowsza lub dokładniejsza)*
    - Robi to samo co wyżej, ale dodatkowo aktualizuje `CaloriesPer100g`, `ProteinPer100g`, `FatPer100g`, `CarbsPer100g`, `SaturatedFatPer100g`, `SugarsPer100g`, `FiberPer100g`, `SaltPer100g` wartościami z OFF.
    - Zapisane wcześniej wpisy w `DiaryEntries` pozostają bezpieczne dzięki kolumnom `*Snapshot`.
