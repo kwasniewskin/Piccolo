@@ -28,14 +28,14 @@ frontend/CLAUDE.md
 *.VC.VC.opendb
 backend/Piccolo.Api/appsettings.Development.json
 backend/Piccolo.Api/appsettings.Production.json
+backend/Piccolo.Api/appsettings.Local.json
 
 # Database
-backend/Piccolo.Api/*.db
-backend/Piccolo.Api/*.db-shm
-backend/Piccolo.Api/*.db-wal
+backend/Piccolo.Api/*.db*
 backend/Piccolo.Api/app.db*
 backend/Piccolo.Api/backups/
 *.backup
+*.backup-*
 
 # Catalog ETL raw data & generated outputs
 tools/catalog-etl/.venv/

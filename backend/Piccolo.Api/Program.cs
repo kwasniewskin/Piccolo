@@ -13,6 +13,7 @@ if (args.Length >= 1 && args[0] == "import-catalog")
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 // Konfiguracja Entity Framework Core z SQLite
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -27,14 +28,23 @@ builder.Services.AddScoped<PartnerService>();
 builder.Services.AddHttpClient<OpenFoodFactsService>();
 
 // Konfiguracja Clerk JWT Authentication
+var clerkAuthority = new[]
+{
+    builder.Configuration["Clerk:Authority"],
+    Environment.GetEnvironmentVariable("CLERK_AUTHORITY"),
+}.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = "https://precious-perch-8876.clerk.accounts.dev";
+        if (!string.IsNullOrWhiteSpace(clerkAuthority))
+        {
+            options.Authority = clerkAuthority;
+        }
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = true,
-            ValidIssuer = "https://precious-perch-8876.clerk.accounts.dev",
+            ValidateIssuer = !string.IsNullOrWhiteSpace(clerkAuthority),
+            ValidIssuer = clerkAuthority,
             ValidateAudience = false, // Clerk nie używa audience claim
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
@@ -52,17 +62,18 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
 });
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (allowedOrigins == null || allowedOrigins.Length == 0)
+{
+    allowedOrigins = new[] { "http://localhost:3000", "http://localhost:3001" };
+}
+
 // Konfiguracja CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://192.168.100.5:3000",
-                "http://192.168.100.5:3001"
-            )
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();  // Umożliwia wysyłanie credentials (sesje Clerk)
