@@ -1,30 +1,28 @@
 /**
- * Warstwa API – komunikacja z backendem (ASP.NET Core na http://localhost:5022).
- * 
- * Wszystkie funkcje zawierają robustną obsługę błędów:
- * - Błędy sieciowe (serwer nie odpowiada) zwracają puste tablice/null zamiast rzucać wyjątki
- * - Błędy HTTP (4xx, 5xx) są logowane i obsługiwane łagodnie
- * - Puste wyniki wyszukiwania (brak dopasowań) to poprawny przypadek, nie błąd
+ * API layer - communication with the ASP.NET Core backend (http://localhost:5022).
+ *
+ * All functions provide defensive error handling:
+ * - Network errors (server unreachable) return empty arrays or null instead of throwing
+ * - HTTP errors (4xx, 5xx) are logged and handled gracefully
+ * - Empty search results (no matches) are treated as a valid state, not an error
  */
 
 import type { DiaryEntry, MealType, Product, Macros } from './types'
 import { auth } from '@clerk/nextjs/server'
 
-// API_BASE używa zmiennej środowiskowej lub domyślnie proxy Next.js.
-// To rozwiązuje problem Mixed Content - requesty idą przez Next.js (HTTPS),
-// który wewnętrznie przekierowuje je do backendu (HTTP localhost:5022).
+// API_BASE uses the current hostname so requests work across localhost and LAN clients.
 const API_BASE = typeof window !== 'undefined' ? `http://${window.location.hostname}:5022/api` : 'http://localhost:5022/api'
 
-// Export API_BASE dla komponentów klienckich
+// Export API_BASE for client components
 export { API_BASE }
 
 // ---------------------------------------------------------------------------
-// Typy odpowiedzi z backendu
+// Backend response types
 // ---------------------------------------------------------------------------
 
-/** 
- * Produkt z backendu – zawiera pola podstawowe + dane z Open Food Facts.
- * Frontend dodaje `unit`, `defaultServing`, `ingredients` lokalnie.
+/**
+ * Product returned by the backend - core nutrition fields plus Open Food Facts metadata.
+ * The frontend attaches `unit`, `defaultServing`, and `ingredients` locally when needed.
  */
 type ApiProduct = {
   id: number
@@ -54,15 +52,15 @@ type ApiProductUnit = {
   productId: number
 }
 
-/** Type guard sprawdzający, czy string jest prawidłowym UnitKey. */
+/** Type guard checking whether a string is a non-empty UnitKey. */
 function isUnitKey(key: string): key is import('./types').UnitKey {
-  // Każdy niepusty string jest prawidłowy
+  // Any non-empty string is valid
   return typeof key === 'string' && key.trim().length > 0
 }
 
 
 /**
- * DiaryEntry z backendu – zawiera zagnieżdżony obiekt `product`.
+ * DiaryEntry returned by the backend - includes a nested `product` object.
  */
 type ApiDiaryEntry = {
   id: number
@@ -83,19 +81,19 @@ type ApiDiaryEntry = {
 }
 
 /**
- * DTO do tworzenia nowego wpisu w dzienniku.
- * Wspiera zarówno wpisy z produktem z bazy (productId), jak i szybkie wpisy (custom*).
+ * DTO for creating a new diary entry.
+ * Supports both catalog-backed entries (productId) and custom Quick Add entries (custom*).
  */
 type CreateDiaryEntryDto = {
   date: string // "2026-10-05"
   mealType: MealType
-  productId?: number // Opcjonalny - dla wpisów z bazy
-  amountInGrams: number | null // Opcjonalny - null dla szybkich wpisów
-  /** Wewnętrzne ID partnera – backend przyjmuje je w body (nie w query). */
+  productId?: number // Optional - for catalog entries
+  amountInGrams: number | null // Optional - null for Quick Add entries
+  /** Internal partner ID - the backend expects this in the request body (not query). */
   targetUserId?: number
   unitKey?: string
   unitQuantity?: number
-  // Pola dla szybkich wpisów (Quick Add)
+  // Fields for Quick Add entries
   customName?: string
   customCalories?: number
   customProtein?: number
@@ -104,26 +102,26 @@ type CreateDiaryEntryDto = {
 }
 
 // ---------------------------------------------------------------------------
-// Funkcje pomocnicze
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
- * Pobiera token JWT z Clerk dla requestów server-side.
+ * Retrieves the Clerk JWT token for client- or server-side requests.
  */
 async function getAuthToken(): Promise<string | null> {
   if (typeof window !== 'undefined') {
-    // Client-side: pobierz token z Clerk
+    // Client-side: get token from Clerk
     const { getToken } = await import('@clerk/nextjs')
     return await getToken({ template: 'jwp-email-template' })
   } else {
-    // Server-side: użyj auth() z @clerk/nextjs/server
+    // Server-side: use auth() from @clerk/nextjs/server
     const { getToken } = await auth()
     return await getToken({ template: 'jwp-email-template' })
   }
 }
 
 /**
- * Tworzy headery z tokenem autentykacji.
+ * Builds request headers including the authentication token.
  */
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await getAuthToken()
@@ -139,15 +137,15 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 /**
- * Mapuje produkt z API na format frontendowy z domyślnymi wartościami.
+ * Maps a backend product DTO to the frontend Product format with sensible defaults.
  */
 function toFrontendProduct(api: ApiProduct): Product {
   return {
     ...api,
-    // Domyślne wartości dla pól tylko-frontendowych
+    // Default values for frontend-only fields
     unit: 'g',
     defaultServing: api.defaultServingGrams || api.packageWeightGrams || 100,
-    ingredients: api.ingredients, // przekaż składniki z backendu (a nie undefined!)
+    ingredients: api.ingredients, // preserve ingredients list from backend
     units: (api.units || [])
       .filter(u => isUnitKey(u.unitKey))
       .map(u => ({ ...u, unitKey: u.unitKey as import('./types').UnitKey })),
@@ -155,7 +153,7 @@ function toFrontendProduct(api: ApiProduct): Product {
 }
 
 /**
- * Mapuje wpis dziennika z API na format frontendowy.
+ * Maps a backend diary entry DTO to the frontend DiaryEntry format.
  */
 function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
   return {
@@ -177,24 +175,28 @@ function toFrontendDiaryEntry(api: ApiDiaryEntry): DiaryEntry {
 }
 
 // ---------------------------------------------------------------------------
-// API: Produkty
+// API: Products
 // ---------------------------------------------------------------------------
 
 /**
- * Wyszukuje produkty, których nazwa zawiera podaną frazę.
- * Hybrydowe wyszukiwanie: lokalna baza + Open Food Facts.
- * 
- * Pusta fraza zwraca domyślną listę wszystkich produktów z lokalnej bazy.
+ * Searches for products whose name matches the given query.
+ * Hybrid search: local database + Open Food Facts.
  *
- * @param query - fraza do wyszukania (np. "mleko", "banana"); pusta = wszystkie produkty
- * @returns tablica produktów lub pusta tablica w przypadku braku wyników lub błędu
+ * An empty query returns the default list of products from the local database.
+ *
+ * @param query - search phrase (e.g., "milk", "banana"); empty = local product list
+ * @param lang - preferred Open Food Facts language code ('en' or 'pl')
+ * @returns matching products array, or empty array on no matches/error
  */
-export async function searchProducts(query: string): Promise<Product[]> {
+export async function searchProducts(query: string, lang: 'en' | 'pl' = 'pl'): Promise<Product[]> {
   try {
     const trimmed = query.trim()
-    const url = trimmed
-      ? `${API_BASE}/products/search?name=${encodeURIComponent(trimmed)}`
-      : `${API_BASE}/products/search`
+    const params = new URLSearchParams()
+    if (trimmed) {
+      params.set('name', trimmed)
+    }
+    params.set('lang', lang)
+    const url = `${API_BASE}/products/search?${params.toString()}`
     
     const headers = await getAuthHeaders()
     const response = await fetch(url, { headers })
@@ -207,19 +209,19 @@ export async function searchProducts(query: string): Promise<Product[]> {
     const data: ApiProduct[] = await response.json()
     return data.map(toFrontendProduct)
   } catch (error) {
-    // Błąd sieciowy (serwer nie odpowiada) – nie crashuj aplikacji
+    // Network error (server unreachable) - do not crash the app
     console.error('[API] Network error during product search:', error)
     return []
   }
 }
 
 // ---------------------------------------------------------------------------
-// API: Dziennik
+// API: Diary
 // ---------------------------------------------------------------------------
 
 /**
- * Zdarzenie wysyłane, gdy backend odmówi dostępu (403) do dziennika partnera.
- * PartnerProvider nasłuchuje go i wraca do własnego dziennika.
+ * Event dispatched when the backend denies access (403) to a partner's diary.
+ * PartnerProvider listens for this event and switches back to the user's own diary.
  */
 export const PARTNER_ACCESS_LOST_EVENT = 'piccolo:partner-access-lost'
 
@@ -230,11 +232,11 @@ function notifyPartnerAccessLost() {
 }
 
 /**
- * Pobiera wszystkie wpisy z dziennika dla danej daty.
- * 
- * @param date - data w formacie YYYY-MM-DD (np. "2026-10-05")
- * @param targetUserId - wewnętrzne ID partnera (pomiń dla własnego dziennika)
- * @returns tablica wpisów lub pusta tablica w przypadku błędu
+ * Fetches all diary entries for a given date.
+ *
+ * @param date - date in YYYY-MM-DD format (e.g., "2026-10-05")
+ * @param targetUserId - internal partner ID (omit for own diary)
+ * @returns diary entries array, or empty array on error
  */
 export async function getDiaryEntries(date: string, targetUserId?: number): Promise<DiaryEntry[]> {
   try {
@@ -271,12 +273,12 @@ export async function getDiaryEntries(date: string, targetUserId?: number): Prom
 }
 
 /**
- * Dodaje nowy wpis do dziennika.
- * Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy.
- * 
- * @param amountInGrams - ilość w gramach (opcjonalne dla szybkich wpisów - null)
- * @param options.targetUserId - wewnętrzne ID partnera; backend oczekuje go w body
- * @returns utworzony wpis lub null w przypadku błędu
+ * Creates a new diary entry.
+ * Supports both catalog-backed entries and Quick Add entries.
+ *
+ * @param amountInGrams - amount in grams (optional/null for Quick Add entries)
+ * @param options.targetUserId - internal partner ID; backend expects it in the request body
+ * @returns created entry, or null on error
  */
 export async function createDiaryEntry(
   date: string,
@@ -334,11 +336,11 @@ export async function createDiaryEntry(
 }
 
 /**
- * Usuwa wpis z dziennika.
- * Backend sam sprawdza, czy wpis należy do użytkownika lub jego partnera,
- * więc nie trzeba przekazywać targetUserId.
- * 
- * @returns true jeśli usunięto, false w przypadku błędu
+ * Deletes a diary entry.
+ * The backend verifies whether the entry belongs to the user or their partner,
+ * so targetUserId does not need to be passed.
+ *
+ * @returns true if deleted, false on error
  */
 export async function deleteDiaryEntry(id: number): Promise<boolean> {
   try {
@@ -365,10 +367,10 @@ export async function deleteDiaryEntry(id: number): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// API: Cele kaloryczne i makro
+// API: Calorie and Macro Goals
 // ---------------------------------------------------------------------------
 
-/** Odpowiedź z GET /api/goals */
+/** Response from GET /api/goals */
 type ApiGoals = {
   kcal: number
   protein: number
@@ -377,10 +379,10 @@ type ApiGoals = {
 }
 
 /**
- * Pobiera cele kaloryczne i makro dla danego użytkownika.
- * 
- * @param targetUserId - wewnętrzne ID użytkownika (pomiń dla własnych celów)
- * @returns cele lub null w przypadku błędu
+ * Fetches calorie and macro goals for a user.
+ *
+ * @param targetUserId - internal user ID (omit for own goals)
+ * @returns goals object, or null on error
  */
 export async function getGoals(targetUserId?: number): Promise<Macros | null> {
   try {
@@ -406,7 +408,7 @@ export async function getGoals(targetUserId?: number): Promise<Macros | null> {
 
     const data: ApiGoals = await response.json()
     
-    // Jeśli backend zwraca same zera, uznaj że brak ustawionych celów
+    // Treat all-zero values from the backend as unset goals
     if (data.kcal === 0 && data.protein === 0 && data.fat === 0 && data.carbs === 0) {
       console.log('[API] Goals are all zeros, returning null to use fallback')
       return null
@@ -425,10 +427,10 @@ export async function getGoals(targetUserId?: number): Promise<Macros | null> {
 }
 
 /**
- * Aktualizuje cele kaloryczne i makro zalogowanego użytkownika.
- * 
- * @param goals - nowe cele
- * @returns true jeśli zapisano, false w przypadku błędu
+ * Updates calorie and macro goals for the authenticated user.
+ *
+ * @param goals - new goal targets
+ * @returns true if saved, false on error
  */
 export async function updateGoals(goals: Macros): Promise<boolean> {
   try {
@@ -461,25 +463,25 @@ export async function updateGoals(goals: Macros): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// Cache produktów
+// Product Cache
 // ---------------------------------------------------------------------------
 
 /**
- * Prosty cache produktów w pamięci, aby nie pobierać ich wielokrotnie.
- * Backend nie zwraca wszystkich produktów na starcie, więc budujemy cache stopniowo.
+ * Simple in-memory product cache to avoid redundant fetches.
+ * Because the backend returns products incrementally, the cache grows as entries load.
  */
 const productCache = new Map<number, Product>()
 
 /**
- * Pobiera produkt po ID z cache lub z API.
+ * Fetches a product by ID from cache or API.
  */
 export async function getProductById(id: number): Promise<Product | null> {
-  // Sprawdź cache
+  // Check cache
   if (productCache.has(id)) {
     return productCache.get(id)!
   }
 
-  // Pobierz z API
+  // Fetch from API
   try {
     const headers = await getAuthHeaders()
     const response = await fetch(`${API_BASE}/products/${id}`, { headers })
@@ -500,24 +502,24 @@ export async function getProductById(id: number): Promise<Product | null> {
 }
 
 /**
- * Dodaje produkty do cache (używane przy ładowaniu wpisów z dziennika).
+ * Populates the product cache (used when loading diary entries).
  */
 export function cacheProducts(products: Product[]) {
   products.forEach((p) => productCache.set(p.id, p))
 }
 
 /**
- * Pobiera wszystkie produkty z cache (do wyświetlenia offline).
+ * Returns all cached products (for offline fallback).
  */
 export function getCachedProducts(): Product[] {
   return Array.from(productCache.values())
 }
 
 /**
- * Tworzy nowy produkt w bazie danych (np. dla Quick Add).
- * 
- * @param productData - dane produktu do utworzenia
- * @returns utworzony produkt z nadanym ID lub null w przypadku błędu
+ * Creates a new product in the database (e.g., for Quick Add or custom items).
+ *
+ * @param productData - product payload to create
+ * @returns created product with assigned ID, or null on error
  */
 export async function createProduct(productData: {
   name: string
@@ -558,7 +560,7 @@ export async function createProduct(productData: {
     const data: ApiProduct = await response.json()
     const createdProduct = toFrontendProduct(data)
     
-    // Dodaj do cache
+    // Add to cache
     productCache.set(createdProduct.id, createdProduct)
     
     console.log('[API] Product created successfully with ID:', createdProduct.id)
@@ -570,10 +572,10 @@ export async function createProduct(productData: {
 }
 
 /**
- * Importuje produkt z Open Food Facts do lokalnej bazy.
- * 
- * @param product - produkt z OFF (z dataSource === "OFF")
- * @returns zapisany produkt z nadanym lokalnym ID lub null w przypadku błędu
+ * Imports an Open Food Facts product into the local database.
+ *
+ * @param product - product from OFF (with dataSource === "OFF")
+ * @returns saved product with assigned local ID, or null on error
  */
 export async function importProduct(product: Product): Promise<Product | null> {
   try {
@@ -595,7 +597,7 @@ export async function importProduct(product: Product): Promise<Product | null> {
     const data: ApiProduct = await response.json()
     const importedProduct = toFrontendProduct(data)
     
-    // Dodaj do cache
+    // Add to cache
     productCache.set(importedProduct.id, importedProduct)
     
     console.log('[API] Product imported successfully with ID:', importedProduct.id)
@@ -607,14 +609,14 @@ export async function importProduct(product: Product): Promise<Product | null> {
 }
 
 /**
- * Pobiera pojedynczy produkt po ID.
- * 
- * @param id - ID produktu
- * @returns produkt lub null jeśli nie znaleziono
+ * Fetches a single product by ID.
+ *
+ * @param id - product ID
+ * @returns product object, or null if not found
  */
 export async function getProduct(id: number): Promise<Product | null> {
   try {
-    // Sprawdź cache
+    // Check cache
     if (productCache.has(id)) {
       console.log('[API] Product found in cache:', id)
       return productCache.get(id)!
@@ -638,7 +640,7 @@ export async function getProduct(id: number): Promise<Product | null> {
     const data: ApiProduct = await response.json()
     const product = toFrontendProduct(data)
     
-    // Dodaj do cache
+    // Add to cache
     productCache.set(product.id, product)
     
     console.log('[API] Product fetched:', product.name)
@@ -650,17 +652,18 @@ export async function getProduct(id: number): Promise<Product | null> {
 }
 
 /**
- * Wyszukuje produkt po kodzie kreskowym - najpierw lokalnie, potem w Open Food Facts.
- * 
- * @param barcode - kod kreskowy produktu (EAN-13, UPC-A itp.)
- * @returns produkt lub null jeśli nie znaleziono
+ * Looks up a product by barcode - checks local DB first, then falls back to Open Food Facts.
+ *
+ * @param barcode - product barcode (EAN-13, UPC-A, etc.)
+ * @param lang - preferred Open Food Facts language code ('en' or 'pl')
+ * @returns product object, or null if not found
  */
-export async function getProductByBarcode(barcode: string): Promise<Product | null> {
+export async function getProductByBarcode(barcode: string, lang: 'en' | 'pl' = 'pl'): Promise<Product | null> {
   try {
     console.log('[API] Looking up product by barcode:', barcode)
     
     const headers = await getAuthHeaders()
-    const response = await fetch(`${API_BASE}/products/barcode/${barcode}`, { headers })
+    const response = await fetch(`${API_BASE}/products/barcode/${encodeURIComponent(barcode)}?lang=${encodeURIComponent(lang)}`, { headers })
     
     if (response.status === 404) {
       console.log('[API] Product not found for barcode:', barcode)
@@ -675,7 +678,7 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
     const data: ApiProduct = await response.json()
     const product = toFrontendProduct(data)
     
-    // Dodaj do cache jeśli ma lokalne ID
+    // Add to cache if the product has a local ID
     if (product.id > 0) {
       productCache.set(product.id, product)
     }
@@ -689,8 +692,8 @@ export async function getProductByBarcode(barcode: string): Promise<Product | nu
 }
 
 /**
- * Pobiera historię użycia produktu przez zalogowanego użytkownika (lub partnera).
- * Zwraca 2 ostatnie różne kombinacje (jednostka, ilość) oraz najczęściej używaną jednostkę.
+ * Fetches usage history of a product for the current user (or partner).
+ * Returns the 2 most recent distinct (unit, amount) combinations and the most used unit.
  * GET /api/diary/product-usage/{productId}?targetUserId=...
  */
 export async function getProductUsage(
@@ -732,9 +735,9 @@ export async function getProductUsage(
 // ---------------------------------------------------------------------------
 
 /**
- * Generuje kod parowania dla bieżącego użytkownika.
- * 
- * @returns obiekt z kodem i datą wygaśnięcia lub null jeśli błąd
+ * Generates a pairing code for the current user.
+ *
+ * @returns object with pairing code and expiration timestamp, or null on error
  */
 export async function generatePairingCode(): Promise<{ code: string; expiresAt: string } | null> {
   try {
@@ -761,10 +764,10 @@ export async function generatePairingCode(): Promise<{ code: string; expiresAt: 
 }
 
 /**
- * Akceptuje kod parowania od partnera.
- * 
- * @param code - 6-cyfrowy kod parowania
- * @returns `{ success: true }` lub `{ success: false, error }` z komunikatem backendu (jeśli jest)
+ * Accepts a pairing code from a partner.
+ *
+ * @param code - 6-character pairing code
+ * @returns `{ success: true }` or `{ success: false, error }` with backend error message if present
  */
 export async function acceptPairingCode(
   code: string,
@@ -787,7 +790,7 @@ export async function acceptPairingCode(
         const parsed = JSON.parse(errorText) as { error?: unknown }
         if (typeof parsed.error === 'string') message = parsed.error
       } catch {
-        // Odpowiedź nie jest JSON-em – zostaje ogólny komunikat
+        // Response is not JSON - keep the generic message
       }
       return { success: false, error: message }
     }
@@ -801,10 +804,10 @@ export async function acceptPairingCode(
 }
 
 /**
- * Pobiera informacje o aktualnym połączeniu z partnerem.
- * 
- * @returns informacje o partnerze lub null jeśli brak połączenia (404)
- * @throws Error przy błędzie sieci/serwera – żeby chwilowa awaria nie wyglądała jak rozłączenie
+ * Fetches details of the current partner connection.
+ *
+ * @returns partner info, or null if not connected (404)
+ * @throws Error on network/server failure so a transient outage is not mistaken for disconnection
  */
 export async function getPartnerConnection(): Promise<{
   partnerId: number
@@ -833,9 +836,9 @@ export async function getPartnerConnection(): Promise<{
 }
 
 /**
- * Rozłącza połączenie z partnerem.
- * 
- * @returns true jeśli sukces, false jeśli błąd
+ * Disconnects the current partner link.
+ *
+ * @returns true on success, false on error
  */
 export async function disconnectPartner(): Promise<boolean> {
   try {

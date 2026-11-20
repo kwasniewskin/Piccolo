@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Dzienne cele kaloryczne i makroskładników użytkownika.
-/// Zakresy zgodne z walidacją formularza w ustawieniach (settings-page.tsx).
+/// Daily calorie and macronutrient targets for a user.
+/// Ranges match the settings form validation (settings-page.tsx).
 /// </summary>
 public class GoalsDto
 {

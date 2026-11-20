@@ -122,7 +122,7 @@ describe('POST /api/analyze-meal', () => {
     const data = await res.json()
     expect(data.meals).toHaveLength(2)
 
-    // Pierwszy talerz: zabezpieczone totalPortions, amountGrams, data i mealType
+    // First plate: sanitized totalPortions, amountGrams, date, and mealType
     expect(data.meals[0].totalPortions).toBe(1)
     expect(data.meals[0].ingredients[0].amountGrams).toBe(100)
     expect(data.meals[0].ingredients[0].nutritionPer100g.calories).toBe(0)
@@ -134,7 +134,7 @@ describe('POST /api/analyze-meal', () => {
       portions: 1,
     })
 
-    // Drugi talerz: zachowany partner, jutro i auto saveToDatabase=true dla zdjęcia etykiety
+    // Second plate: preserves partner target, tomorrow date, and saveToDatabase=true for label photo
     expect(data.meals[1].ingredients[0].amountGrams).toBe(14.4)
     expect(data.meals[1].ingredients[0].saveToDatabase).toBe(true)
     expect(data.meals[1].ingredients[0].newProductDetails?.barcode).toBe('590123')
@@ -213,5 +213,47 @@ describe('POST /api/analyze-meal', () => {
     expect(data.ingredient.rawName).toBe('Serek śmietankowy wysokobiałkowy')
     expect(data.ingredient.amountGrams).toBe(45)
     expect(data.ingredient.nutritionPer100g.protein).toBe(14)
+  })
+
+  it('passes English output instructions and uses English fallbacks when context.language is en', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      mockGeminiJson({
+        meals: [
+          {
+            ingredients: [
+              {
+                searchQuery: 'oats',
+                amountGrams: 60,
+                nutritionPer100g: { calories: 380, protein: 13, fat: 7, carbs: 66 },
+              },
+            ],
+          },
+        ],
+      })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(
+      makeRequest({
+        prompt: '60g oats',
+        context: {
+          currentDate: '2026-11-18',
+          currentMeal: 'breakfast',
+          isViewingPartner: false,
+          hasPartner: false,
+          language: 'en',
+        },
+      })
+    )
+
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.meals[0].dishName).toBe('AI Meal')
+    expect(data.meals[0].tabLabel).toBe('Me')
+    expect(data.meals[0].ingredients[0].rawName).toBe('Ingredient')
+    expect(data.aiSummary).toContain('Analyzed meal')
+
+    const sentBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))
+    expect(sentBody.systemInstruction.parts[0].text).toContain('Write aiSummary, dishName, tabLabel, and rawName in English.')
   })
 })

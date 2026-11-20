@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master, feat/*, test/*, docs/*]
+  pull_request:
+    branches: [master]
+
+jobs:
+  backend-tests:
+    name: Backend (.NET 10 xUnit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore dependencies
+        run: dotnet restore backend/Piccolo.Api.Tests/Piccolo.Api.Tests.csproj
+      - name: Run integration tests
+        run: dotnet test backend/Piccolo.Api.Tests/Piccolo.Api.Tests.csproj --no-restore --verbosity normal
+
+  frontend-checks:
+    name: Frontend (TypeScript & Vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: TypeScript typecheck
+        run: npm run typecheck
+      - name: Run Vitest suite
+        run: npm test

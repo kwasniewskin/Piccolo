@@ -6,7 +6,7 @@ using Piccolo.Api.Models;
 namespace Piccolo.Api.Services;
 
 /// <summary>
-/// Serwis zarządzający użytkownikami i ich synchronizacją z Clerk.
+/// Service managing users and syncing profiles from Clerk JWT claims.
 /// </summary>
 public class UserService
 {
@@ -20,7 +20,7 @@ public class UserService
     }
 
     /// <summary>
-    /// Pobiera lub tworzy użytkownika na podstawie JWT tokenu z Clerk.
+    /// Fetches or creates a local user based on Clerk JWT claims.
     /// </summary>
     public async Task<User> GetOrCreateCurrentUserAsync()
     {
@@ -37,13 +37,13 @@ public class UserService
         var name = httpContext.User.FindFirst(ClaimTypes.Name)?.Value
             ?? httpContext.User.FindFirst("name")?.Value;
 
-        // Sprawdź czy użytkownik już istnieje
+        // Check if user already exists
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.ClerkUserId == clerkUserId);
 
         if (user == null)
         {
-            // Utwórz nowego użytkownika
+            // Create new user record
             user = new User
             {
                 ClerkUserId = clerkUserId,
@@ -57,7 +57,7 @@ public class UserService
         }
         else
         {
-            // Aktualizuj email/name jeśli się zmieniły w Clerk
+            // Update email/name if changed in Clerk
             var updated = false;
             
             if (user.Email != email)
@@ -82,7 +82,7 @@ public class UserService
     }
 
     /// <summary>
-    /// Pobiera ID aktualnie zalogowanego użytkownika.
+    /// Returns the internal ID of the currently authenticated user.
     /// </summary>
     public async Task<int> GetCurrentUserIdAsync()
     {

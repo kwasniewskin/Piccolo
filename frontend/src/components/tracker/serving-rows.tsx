@@ -12,8 +12,8 @@ type QuickServingRowProps = {
 }
 
 /**
- * Pojedynczy wiersz „szybkiego dodawania" (wiersze 1–3).
- * Etykieta | waga | kcal | przycisk „>".
+ * Single "quick add" row (rows 1-3).
+ * Label | weight | kcal | ">" action.
  */
 export function QuickServingRow({ label, grams, kcal, onAdd }: QuickServingRowProps) {
   return (
@@ -46,8 +46,8 @@ type FixedUnitCalculatorRowProps = {
 }
 
 /**
- * Wiersz 4: kalkulator z polem liczbowym i STAŁĄ jednostką (najczęściej używana).
- * Zielone tło pola podobnie jak w Fitatu.
+ * Row 4: calculator with numeric input and FIXED most-used unit.
+ * Highlighted input styling emphasizes the active quick-entry field.
  */
 export function FixedUnitCalculatorRow({
   product,
@@ -111,8 +111,8 @@ type UnitSelectCalculatorRowProps = {
 }
 
 /**
- * Wiersz 5: kalkulator z polem liczbowym i DROPDOWN-em jednostek (domyślnie g).
- * Użytkownik może wybrać dowolną jednostkę dostępną dla produktu.
+ * Row 5: calculator with numeric input and unit DROPDOWN (defaults to g).
+ * Allows choosing any serving unit supported by the product.
  */
 export function UnitSelectCalculatorRow({ product, lang, onAdd }: UnitSelectCalculatorRowProps) {
   const units = getAvailableUnits(product)

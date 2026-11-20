@@ -10,7 +10,7 @@ namespace Piccolo.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Istniejący użytkownicy dostają domyślne cele (GOALS w nutrition.ts), a nie 0.
+            // Existing users receive default goals (matching frontend GOALS) instead of 0.
             migrationBuilder.AddColumn<double>(
                 name: "CalorieGoal",
                 table: "Users",

@@ -23,16 +23,16 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Wyszukuje produkty hybrydowo: najpierw lokalna baza, potem Open Food Facts.
-    /// Lokalne wyniki są zawsze na górze, duplikaty (po kodzie kreskowym) są usuwane.
-    /// GET /api/products/search?name=mleko
+    /// Hybrid product search: local database first, then Open Food Facts.
+    /// Local results are always ranked first and barcode duplicates are deduplicated.
+    /// GET /api/products/search?name=milk&amp;lang=en
     /// </summary>
     [HttpGet("search")]
-    public async Task<ActionResult<IEnumerable<Product>>> Search([FromQuery] string? name)
+    public async Task<ActionResult<IEnumerable<Product>>> Search([FromQuery] string? name, [FromQuery] string? lang = "pl")
     {
         var results = new List<Product>();
 
-        // 1. Pobierz wyniki z lokalnej bazy (mają Id)
+        // 1. Fetch matches from the local database (records with Id > 0)
         IQueryable<Product> localQuery = _context.Products
             .AsNoTracking()
             .Include(p => p.Units)
@@ -108,12 +108,12 @@ public class ProductsController : ControllerBase
         }
         results.AddRange(localProducts);
 
-        // 2. Pobierz wyniki z Open Food Facts (jeśli podano nazwę)
+        // 2. Query Open Food Facts when a search term is provided
         if (!string.IsNullOrWhiteSpace(name))
         {
-            var offProducts = await _offService.SearchByNameAsync(name);
+            var offProducts = await _offService.SearchByNameAsync(name, lang ?? "pl");
             
-            // 3. Usuń duplikaty - produkty OFF, które mają kod kreskowy już obecny w bazie lokalnej
+            // 3. Deduplicate OFF results whose barcode already exists locally
             var localBarcodes = localProducts
                 .Where(p => !string.IsNullOrWhiteSpace(p.Barcode))
                 .Select(p => p.Barcode)
@@ -123,7 +123,7 @@ public class ProductsController : ControllerBase
                 .Where(p => string.IsNullOrWhiteSpace(p.Barcode) || !localBarcodes.Contains(p.Barcode))
                 .ToList();
 
-            // 4. Dodaj unikalne produkty OFF na końcu listy
+            // 4. Append unique OFF products after local results
             results.AddRange(uniqueOffProducts);
         }
 
@@ -131,14 +131,14 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Wyszukuje produkt po kodzie kreskowym - najpierw lokalnie, potem w Open Food Facts.
-    /// Nie zapisuje produktu do bazy - to robi endpoint /import.
-    /// GET /api/products/barcode/5900049011034
+    /// Looks up a product by barcode: local database first, then Open Food Facts.
+    /// Does not persist OFF products automatically (see POST /import).
+    /// GET /api/products/barcode/5900049011034?lang=en
     /// </summary>
     [HttpGet("barcode/{barcode}")]
-    public async Task<ActionResult<Product>> GetByBarcode(string barcode)
+    public async Task<ActionResult<Product>> GetByBarcode(string barcode, [FromQuery] string? lang = "pl")
     {
-        // 1. Sprawdź lokalną bazę
+        // 1. Check local database
         var localProduct = await _context.Products
             .Include(p => p.Units)
             .FirstOrDefaultAsync(p => !p.IsArchived && p.Barcode == barcode);
@@ -148,8 +148,8 @@ public class ProductsController : ControllerBase
             return Ok(localProduct);
         }
 
-        // 2. Sprawdź Open Food Facts
-        var offProduct = await _offService.GetByBarcodeAsync(barcode);
+        // 2. Fallback to Open Food Facts
+        var offProduct = await _offService.GetByBarcodeAsync(barcode, lang ?? "pl");
 
         if (offProduct == null)
         {
@@ -160,7 +160,7 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Importuje produkt (zazwyczaj z Open Food Facts) do lokalnej bazy danych.
+    /// Imports a product (typically from Open Food Facts) into the local database.
     /// POST /api/products/import
     /// </summary>
     [HttpPost("import")]
@@ -172,7 +172,7 @@ public class ProductsController : ControllerBase
             return BadRequest(new { message = unitError });
         }
 
-        // Sprawdź czy produkt z tym kodem kreskowym już istnieje
+        // Check if a product with this barcode already exists
         if (!string.IsNullOrWhiteSpace(product.Barcode))
         {
             var existing = await _context.Products
@@ -187,7 +187,7 @@ public class ProductsController : ControllerBase
 
         NormalizeUnitsForInsert(product);
 
-        // Zapisz produkt
+        // Persist product
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
@@ -195,11 +195,11 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Dodaje nowy produkt do bazy danych.
+    /// Creates a new product in the database.
     /// POST /api/products
     /// </summary>
     [HttpPost]
-    [AllowAnonymous] // Produkty są globalne - seedowanie musi działać bez autoryzacji
+    [AllowAnonymous] // Products are shared globally; seeding requires unauthenticated access
     public async Task<ActionResult<Product>> Create([FromBody] Product product)
     {
         var unitError = ValidateUnits(product.Units);
@@ -217,7 +217,7 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera produkt po ID (potrzebne dla CreatedAtAction).
+    /// Fetches a product by ID (used by CreatedAtAction).
     /// GET /api/products/{id}
     /// </summary>
     [HttpGet("{id}")]
@@ -236,8 +236,8 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Aktualizuje istniejący produkt w bazie danych.
-    /// Lista jednostek (Units) jest zastępowana w całości tym, co przyszło w żądaniu.
+    /// Updates an existing product in the database.
+    /// The Units collection is replaced in full with the units provided in the request.
     /// PUT /api/products/{id}
     /// </summary>
     [HttpPut("{id}")]
@@ -258,7 +258,7 @@ public class ProductsController : ControllerBase
             return NotFound(new { message = "Product not found" });
         }
 
-        // Aktualizuj pola
+        // Update product fields
         existingProduct.Barcode = product.Barcode;
         existingProduct.Name = product.Name;
         existingProduct.Brand = product.Brand;
@@ -275,7 +275,7 @@ public class ProductsController : ControllerBase
         existingProduct.DefaultServingGrams = product.DefaultServingGrams;
         existingProduct.Ingredients = product.Ingredients;
 
-        // Zastąp listę jednostek: usuń stare, dodaj nowe
+        // Replace serving units: remove previous entries and insert new ones
         _context.ProductUnits.RemoveRange(existingProduct.Units);
         existingProduct.Units = (product.Units ?? new List<ProductUnit>())
             .Select(u => new ProductUnit { UnitKey = u.UnitKey, GramsPerUnit = u.GramsPerUnit, ProductId = existingProduct.Id })
@@ -287,8 +287,8 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Waliduje jednostki produktu: niepusta nazwa, waga > 0, brak duplikatów.
-    /// Zwraca komunikat błędu albo null, gdy wszystko jest poprawne.
+    /// Validates product serving units: non-empty key, grams > 0, no duplicates.
+    /// Returns an error message or null when valid.
     /// </summary>
     private static string? ValidateUnits(ICollection<ProductUnit>? units)
     {
@@ -316,7 +316,7 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Czyści Id/ProductId przysłane przez klienta, żeby EF utworzył nowe rekordy jednostek.
+    /// Strips client-supplied Id/ProductId so EF creates fresh ProductUnit records.
     /// </summary>
     private static void NormalizeUnitsForInsert(Product product)
     {
@@ -326,12 +326,12 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa wszystkie przykładowe produkty (bez kodu kreskowego).
+    /// Deletes all sample/unverified user products without a barcode or import batch.
     /// DELETE /api/products/sample-products
-    /// WAŻNE: Musi być PRZED endpointem DELETE {id}, aby routing działał poprawnie
+    /// NOTE: Must be declared BEFORE DELETE {id} for route matching.
     /// </summary>
     [HttpDelete("sample-products")]
-    [AllowAnonymous] // Pozwól na czyszczenie bez autoryzacji dla wygody
+    [AllowAnonymous] // Allow cleanup without authentication during local development
     public async Task<ActionResult<object>> DeleteSampleProducts()
     {
         var sampleProducts = await _context.Products
@@ -350,7 +350,7 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa produkt po ID.
+    /// Deletes a product by ID.
     /// DELETE /api/products/{id}
     /// </summary>
     [HttpDelete("{id}")]

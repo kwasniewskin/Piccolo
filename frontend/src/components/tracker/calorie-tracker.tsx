@@ -14,20 +14,20 @@ import { DailySummary } from './daily-summary'
 import { MealCard } from './meal-card'
 import { AddFoodSheet } from './add-food-sheet'
 import { SettingsPage } from './settings-page'
-// WaterCard (./water-card) jest gotowy, ale celowo jeszcze nie renderowany – przyszła funkcja.
+// WaterCard (./water-card) is implemented but intentionally not rendered yet - future feature.
 
 // ---------------------------------------------------------------------------
-// Stan aplikacji
+// Application State
 // ---------------------------------------------------------------------------
 
 type AppState = {
-  /** Dziennik wpisów (DiaryEntry), pogrupowany po dacie `YYYY-MM-DD`. */
+  /** Diary entries (DiaryEntry) grouped by `YYYY-MM-DD` date key. */
   entries: Record<string, DiaryEntry[]>
-  /** Produkty załadowane z API lub z cache. */
+  /** Products loaded from the API or local cache. */
   products: Product[]
-  /** Czy trwa ładowanie danych z API. */
+  /** Whether diary data is currently loading from the API. */
   loading: boolean
-  /** Komunikat o błędzie (jeśli serwer nie odpowiada). */
+  /** User-facing error banner message when an API call fails. */
   error: string | null
 }
 
@@ -95,7 +95,7 @@ function buildInitialState(): AppState {
 }
 
 // ---------------------------------------------------------------------------
-// Komponent główny
+// Main Component
 // ---------------------------------------------------------------------------
 
 export function CalorieTracker() {
@@ -108,66 +108,66 @@ export function CalorieTracker() {
   const [openMeal, setOpenMeal] = useState<MealType | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   
-  // Cele przeglądanego użytkownika (wyświetlane w DailySummary)
+  // Goals of the currently viewed diary owner (displayed in DailySummary)
   const [viewedGoals, setViewedGoals] = useState<Macros>(GOALS)
-  // Cele zalogowanego użytkownika (wyświetlane w SettingsPage)
+  // Goals of the signed-in user (edited in SettingsPage)
   const [ownGoals, setOwnGoals] = useState<Macros>(GOALS)
 
-  // Obsługa parametrów URL po przekierowaniu z formularza produktu
+  // Handle URL parameters after returning from the standalone add-product form
   useEffect(() => {
     const mealParam = searchParams?.get('meal') as MealType | null
     const dateParam = searchParams?.get('date')
     
-    // Jeśli są parametry meal i date, automatycznie otwórz panel dodawania
+    // Auto-open the add-food sheet when meal and date params are present
     if (mealParam && dateParam) {
-      // Sprawdź czy meal jest poprawnym MealType
+      // Validate meal param is a known MealType
       const validMeals: MealType[] = ['breakfast', 'second-breakfast', 'lunch', 'snack', 'dinner']
       if (validMeals.includes(mealParam)) {
         setOpenMeal(mealParam)
       }
       
-      // Ustaw aktywną datę
+      // Sync active date
       setActiveDate(dateParam)
     }
-    // Nie czyścimy URL tutaj - zrobi to add-food-sheet po załadowaniu produktu
+    // Keep URL params until add-food-sheet consumes and loads the created product
   }, [searchParams])
   
   const meals = getMeals(language)
 
-  // Produkty z cache (będą się zapełniać w miarę używania)
+  // Cached products (populated incrementally as entries load)
   const products: Product[] = state.products
 
-  // Wpisy dla aktywnego dnia, wzbogacone o dane produktu i wyliczone makro
+  // Active day entries enriched with product details and computed macros
   const dayEntries = state.entries[activeDate] ?? []
   const dayViews: DiaryEntryView[] = dayEntries.flatMap((e) => {
-    const v = toEntryView(e, products)
+    const v = toEntryView(e, products, language)
     return v ? [v] : []
   })
 
-  // Suma makroskładników dla całego dnia
+  // Total macros for the active day
   const dayTotals = sumMacros(dayViews)
 
-  // Załaduj wpisy dla aktywnego dnia przy zmianie daty
-  // Przy przełączeniu dziennika (własny ↔ partnera) wyczyść cache wpisów innej osoby
+  // Load entries when active date or viewed diary changes
+  // Clearing cached entries on partner switch prevents stale cross-user entries from flashing
   useEffect(() => {
     dispatch({ type: 'reset-entries' })
   }, [activeUserId])
 
-  // Załaduj cele przeglądanego użytkownika przy przełączeniu dziennika
+  // Load goals of the currently viewed user on diary switch
   useEffect(() => {
     async function loadGoals() {
       const goals = await api.getGoals(activeUserId)
       if (goals) {
         setViewedGoals(goals)
       } else {
-        // Jeśli API nie odpowiada, użyj domyślnych wartości
+        // Fall back to default targets if the API fails
         setViewedGoals(GOALS)
       }
     }
     loadGoals()
   }, [activeUserId])
 
-  // Załaduj własne cele przy starcie (do użycia w ustawieniach)
+  // Load own goals on mount (for SettingsPage)
   useEffect(() => {
     async function loadOwnGoals() {
       const goals = await api.getGoals(undefined)
@@ -186,12 +186,12 @@ export function CalorieTracker() {
       const entries = await api.getDiaryEntries(activeDate, activeUserId)
       
       if (entries.length === 0 && !navigator.onLine) {
-        dispatch({ type: 'set-error', error: 'Brak połączenia z serwerem' })
+        dispatch({ type: 'set-error', error: getTranslation(language, 'connection-error') })
       }
 
       dispatch({ type: 'set-entries', date: activeDate, entries })
 
-      // Pobierz produkty dla wpisów i dodaj do cache (pomiń wpisy bez productId)
+      // Fetch products for loaded entries and populate cache (skip Quick Add entries without productId)
       const productIds = [...new Set(entries.filter(e => e.productId != null).map((e) => e.productId!))]
       const loadedProducts = await Promise.all(
         productIds.map((id) => api.getProductById(id))
@@ -213,10 +213,10 @@ export function CalorieTracker() {
     unitKey?: string,
     quantity?: number
   ) {
-    // Dodaj produkt do cache jeśli go tam nie ma
+    // Add product to cache if missing
     api.cacheProducts([product])
     
-    // Wyślij do API (z targetUserId jeśli oglądamy partnera)
+    // Send to API (passing targetUserId when viewing a partner's diary)
     const entry = await api.createDiaryEntry(activeDate, meal, amountInGrams, { 
       productId: product.id,
       targetUserId: activeUserId,
@@ -224,20 +224,19 @@ export function CalorieTracker() {
       unitQuantity: quantity,
     })
     
-    // Zawsze zamknij modal, niezależnie od wyniku
+    // Always close the sheet regardless of outcome
     setOpenMeal(null)
     
     if (entry) {
-      // Zsynchronizuj produkty w stanie z cache – bez tego toEntryView nie znajdzie
-      // nowego produktu i wpis nie zostałby wyrenderowany.
+      // Sync state products from cache so toEntryView can resolve newly added items.
       dispatch({ type: 'set-products', products: api.getCachedProducts() })
 
-      // Odśwież listę wpisów dla dnia z serwera (źródło prawdy).
+      // Refresh day entries from server (source of truth).
       const fresh = await api.getDiaryEntries(activeDate, activeUserId)
       dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
     } else {
-      // Błąd zapisu – pokaż użytkownikowi komunikat
-      dispatch({ type: 'set-error', error: 'Nie udało się zapisać posiłku' })
+      // Save error - display banner feedback
+      dispatch({ type: 'set-error', error: getTranslation(language, 'save-meal-error') })
       setTimeout(() => dispatch({ type: 'set-error', error: null }), 3000)
     }
   }
@@ -248,7 +247,7 @@ export function CalorieTracker() {
     if (success) {
       dispatch({ type: 'remove', date: activeDate, id })
     } else {
-      dispatch({ type: 'set-error', error: 'Nie udało się usunąć wpisu' })
+      dispatch({ type: 'set-error', error: getTranslation(language, 'remove-entry-error') })
       setTimeout(() => dispatch({ type: 'set-error', error: null }), 3000)
     }
   }
@@ -266,7 +265,7 @@ export function CalorieTracker() {
         </div>
       )}
 
-      {/* Pasek daty */}
+      {/* Date strip */}
       <DateStrip
         selected={activeDate}
         today={today}
@@ -274,22 +273,22 @@ export function CalorieTracker() {
         onSelect={setActiveDate}
       />
 
-      {/* Komunikat o błędzie */}
+      {/* Error banner */}
       {state.error && (
         <div className="mx-4 mt-3 rounded-2xl bg-red-500/10 px-4 py-3 text-sm text-red-600">
           {state.error}
         </div>
       )}
 
-      {/* pb-44 zostawia miejsce na sticky DailySummary na dole (~11rem) */}
+      {/* pb-44 leaves room for the sticky bottom DailySummary (~11rem) */}
       <main className="flex flex-1 flex-col gap-3 px-4 pb-44 pt-3">
         {state.loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
-            Ładowanie...
+            {getTranslation(language, 'loading')}
           </div>
         ) : (
           <>
-            {/* Karty posiłków */}
+            {/* Meal cards */}
             {meals.map((meal) => {
               const entries = dayViews.filter((e) => e.mealType === meal.id)
               return (
@@ -306,10 +305,10 @@ export function CalorieTracker() {
         )}
       </main>
 
-      {/* Podsumowanie kalorii – zawsze na dole ekranu */}
+      {/* Daily calorie summary - pinned to bottom of viewport */}
       <DailySummary totals={dayTotals} goals={viewedGoals} />
 
-      {/* Sheet do dodawania posiłku */}
+      {/* Sheet for adding food entries */}
       <AddFoodSheet
         meal={openMeal}
         date={activeDate}
@@ -317,7 +316,7 @@ export function CalorieTracker() {
         onAdd={handleAdd}
         targetUserId={activeUserId}
         onQuickAddComplete={async () => {
-          // Odśwież dane z serwera po dodaniu szybkiego wpisu
+          // Refresh diary entries after saving a quick-add item
           const fresh = await api.getDiaryEntries(activeDate, activeUserId)
           dispatch({ type: 'set-products', products: api.getCachedProducts() })
           dispatch({ type: 'set-entries', date: activeDate, entries: fresh })
@@ -329,17 +328,16 @@ export function CalorieTracker() {
         goals={ownGoals}
         onClose={() => setSettingsOpen(false)}
         onSave={async (next) => {
-          // Zapisz cele w backendzie
+          // Persist updated goals in the backend
           const success = await api.updateGoals(next)
           if (success) {
             setOwnGoals(next)
-            // Jeśli przeglądamy własny dziennik, zaktualizuj także viewedGoals
+            // Keep viewedGoals in sync when viewing own diary
             if (!isViewingPartner) {
               setViewedGoals(next)
             }
           } else {
-            // TODO: pokazać błąd użytkownikowi
-            dispatch({ type: 'set-error', error: 'Nie udało się zapisać celów' })
+            dispatch({ type: 'set-error', error: getTranslation(language, 'save-goals-error') })
             setTimeout(() => dispatch({ type: 'set-error', error: null }), 3000)
           }
           setSettingsOpen(false)

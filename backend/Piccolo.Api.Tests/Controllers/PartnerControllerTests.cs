@@ -9,8 +9,8 @@ using Xunit;
 namespace Piccolo.Api.Tests.Controllers;
 
 /// <summary>
-/// Testy integracyjne Partner Sync – scenariusze wykryte w testach E2E na dwóch przeglądarkach.
-/// Testy współdzielą bazę (IClassFixture), więc każdy kończy bez aktywnego połączenia.
+/// Partner Sync integration tests covering E2E multi-browser scenarios.
+/// Tests share an in-memory database via IClassFixture, so each test disconnects at the end.
 /// </summary>
 public class PartnerControllerTests : IClassFixture<CustomWebApplicationFactory>
 {
@@ -53,7 +53,7 @@ public class PartnerControllerTests : IClassFixture<CustomWebApplicationFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         using var doc = JsonDocument.Parse(json);
         var expiresAt = doc.RootElement.GetProperty("expiresAt").GetString();
-        expiresAt.Should().EndWith("Z", "frontend parsuje datę bez strefy jako czas lokalny");
+        expiresAt.Should().EndWith("Z", "frontend parses timestamps without a timezone as local time");
         DateTime.Parse(expiresAt!).ToUniversalTime().Should().BeAfter(DateTime.UtcNow);
     }
 
@@ -67,7 +67,7 @@ public class PartnerControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         second.Should().NotBe(first);
 
-        // Stary kod nie powinien już działać
+        // Old code must no longer work
         TestAuthHandler.SwitchToUser2();
         var response = await AcceptCodeAsync(first);
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -79,23 +79,23 @@ public class PartnerControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         await EnsureDisconnectedAsync();
 
-        // 1. Pierwsze parowanie: User1 generuje, User2 akceptuje
+        // 1. Initial pairing: User1 generates code, User2 accepts
         var code1 = await GenerateCodeAsync();
         TestAuthHandler.SwitchToUser2();
         (await AcceptCodeAsync(code1)).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // Generujący (User1) widzi połączenie bez akcji z jego strony
+        // Code creator (User1) sees the connection without further action
         TestAuthHandler.SwitchToUser1();
         (await _client.GetAsync("/api/partner/connection")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        // 2. Rozłączenie przez akceptującego
+        // 2. Disconnection triggered by accepting user
         TestAuthHandler.SwitchToUser2();
         (await _client.DeleteAsync("/api/partner/disconnect")).StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // 3. Generowanie kodu po rozłączeniu działa
+        // 3. Generating a new code after disconnecting works
         var code2 = await GenerateCodeAsync();
 
-        // 4. Ponowne parowanie tej samej pary (wcześniej: naruszenie unikalnego indeksu → 500)
+        // 4. Re-pairing the same pair (previously threw 500 on unique index conflict)
         TestAuthHandler.SwitchToUser1();
         var response = await AcceptCodeAsync(code2);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -104,7 +104,7 @@ public class PartnerControllerTests : IClassFixture<CustomWebApplicationFactory>
         connection!.Status.Should().Be(ConnectionStatus.Accepted);
         connection.PartnerName.Should().Be(TestAuthHandler.TestUser2Name);
 
-        // Obie strony widzą aktywne połączenie
+        // Both users observe the active connection
         (await _client.GetAsync("/api/partner/connection")).StatusCode.Should().Be(HttpStatusCode.OK);
         TestAuthHandler.SwitchToUser2();
         (await _client.GetAsync("/api/partner/connection")).StatusCode.Should().Be(HttpStatusCode.OK);

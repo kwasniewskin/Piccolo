@@ -24,8 +24,8 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
   const t = (key: keyof typeof import('@/lib/i18n').TRANSLATIONS.en) => getTranslation(language, key)
 
   /**
-   * Etykieta "Dodane przez ..." dla wpisów, które dodała inna osoba niż właściciel dziennika.
-   * We własnym dzienniku taki wpis dodał partner; w dzienniku partnera – my.
+   * "Added by ..." attribution badge for entries added by someone other than the diary owner.
+   * In your own diary this was logged by your partner; in your partner's diary, by you.
    */
   function addedByLabel(entry: DiaryEntryView): string | null {
     if (entry.createdByUserId == null || entry.userId == null) return null
@@ -44,7 +44,7 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
   return (
     <section aria-labelledby={headingId} className="rounded-3xl bg-card text-card-foreground shadow-sm">
       <div className="p-4">
-        {/* Linia 1: Chevron + Nazwa + Przycisk + */}
+        {/* Row 1: Chevron + Meal Name + Add Button */}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -75,7 +75,7 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
           </button>
         </div>
 
-        {/* Linia 2: Kalorie + Makra (zawsze widoczne) */}
+        {/* Row 2: Calories + Macros (always visible) */}
         <div className="ml-8 -mt-2 flex items-center gap-3">
           <span className="text-sm font-semibold tabular-nums text-kcal">
             {totals.kcal}

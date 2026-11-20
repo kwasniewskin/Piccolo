@@ -1,45 +1,45 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Kod parowania do łączenia użytkowników. 
-/// Ważny przez 15 minut, jednorazowy.
+/// Pairing code for linking two partner accounts.
+/// Single-use, valid for 15 minutes.
 /// </summary>
 public class PairingCode
 {
     public int Id { get; set; }
     
     /// <summary>
-    /// 6-cyfrowy kod parowania (np. "123456").
+    /// 6-digit pairing code (e.g. "123456").
     /// </summary>
     public required string Code { get; set; }
     
     /// <summary>
-    /// ID użytkownika, który wygenerował kod.
+    /// ID of the user who generated the code.
     /// </summary>
     public int CreatedByUserId { get; set; }
     
     /// <summary>
-    /// Data utworzenia kodu.
+    /// Code creation timestamp (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
     /// <summary>
-    /// Data wygaśnięcia kodu (CreatedAt + 15 minut).
+    /// Code expiration timestamp (CreatedAt + 15 minutes).
     /// </summary>
     public DateTime ExpiresAt { get; set; }
     
     /// <summary>
-    /// Czy kod został już użyty (zaakceptowany lub odrzucony).
+    /// Whether the code has already been consumed.
     /// </summary>
     public bool IsUsed { get; set; }
     
     /// <summary>
-    /// ID użytkownika, który użył kodu (zaakceptował lub odrzucił).
+    /// ID of the user who redeemed the code.
     /// </summary>
     public int? UsedByUserId { get; set; }
     
     /// <summary>
-    /// Data użycia kodu.
+    /// Redemption timestamp (UTC).
     /// </summary>
     public DateTime? UsedAt { get; set; }
     

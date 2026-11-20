@@ -24,10 +24,10 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera wszystkie wpisy z dziennika dla danej daty.
-    /// Domyślnie pobiera dziennik zalogowanego użytkownika.
-    /// Jeśli targetUserId jest podane i użytkownik ma połączenie partnerskie, pobiera dziennik partnera.
-    /// GET /api/diary?date=2026-10-05&targetUserId=2
+    /// Fetches all diary entries for a given date.
+    /// Defaults to the authenticated user's diary; when targetUserId is provided
+    /// and a partner connection exists, fetches the partner's diary instead.
+    /// GET /api/diary?date=2026-10-05&amp;targetUserId=2
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<IEnumerable<DiaryEntry>>> Get([FromQuery] DateOnly date, [FromQuery] int? targetUserId = null)
@@ -35,7 +35,7 @@ public class DiaryController : ControllerBase
         var currentUserId = await _userService.GetCurrentUserIdAsync();
         var userId = targetUserId ?? currentUserId;
 
-        // Sprawdź uprawnienia (jeśli targetUserId != currentUserId)
+        // Verify partner access when querying another user's diary
         if (userId != currentUserId)
         {
             var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, userId);
@@ -54,10 +54,9 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Dodaje nowy wpis do dziennika żywieniowego.
-    /// Domyślnie dodaje wpis dla zalogowanego użytkownika.
-    /// Jeśli TargetUserId jest podane i użytkownik ma połączenie partnerskie, dodaje wpis dla partnera.
-    /// Wspiera zarówno wpisy z produktem z bazy, jak i szybkie wpisy (Quick Add).
+    /// Creates a new diary entry.
+    /// Defaults to the authenticated user's diary, or the partner's diary when TargetUserId
+    /// is provided and access is authorized. Supports both product-linked and custom entries.
     /// POST /api/diary
     /// </summary>
     [HttpPost]
@@ -69,7 +68,7 @@ public class DiaryController : ControllerBase
         var currentUserId = await _userService.GetCurrentUserIdAsync();
         var targetUserId = dto.TargetUserId ?? currentUserId;
         
-        // Sprawdź uprawnienia (jeśli targetUserId != currentUserId)
+        // Verify partner access when logging to another user's diary
         if (targetUserId != currentUserId)
         {
             var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, targetUserId);
@@ -81,13 +80,13 @@ public class DiaryController : ControllerBase
         
         Console.WriteLine($"[DiaryController] CurrentUserId: {currentUserId}, TargetUserId: {targetUserId}");
         
-        // Walidacja: musi być albo ProductId, albo pola Custom*
+        // Require either a ProductId or custom entry fields
         if (dto.ProductId == null && string.IsNullOrWhiteSpace(dto.CustomName))
         {
             return BadRequest("Wpis musi zawierać albo ProductId, albo dane produktu (CustomName, CustomCalories, etc.)");
         }
         
-        // Walidacja jednostki: oba pola razem albo żadne, ilość dodatnia
+        // Serving unit fields must be provided together and quantity must be positive
         if ((dto.UnitKey == null) != (dto.UnitQuantity == null))
         {
             return BadRequest("UnitKey i UnitQuantity muszą być podane razem.");
@@ -97,7 +96,7 @@ public class DiaryController : ControllerBase
             return BadRequest("UnitQuantity musi być większe od 0.");
         }
         
-        // Walidacja: jeśli ProductId jest podane, produkt musi istnieć
+        // Verify referenced product exists when ProductId is specified
         Product? product = null;
         if (dto.ProductId.HasValue)
         {
@@ -118,13 +117,13 @@ public class DiaryController : ControllerBase
             UnitQuantity = dto.UnitQuantity,
             UserId = targetUserId,
             CreatedByUserId = currentUserId,
-            // Pola dla szybkich wpisów
+            // Custom / Quick Add fields
             CustomName = dto.CustomName,
             CustomCalories = dto.CustomCalories,
             CustomProtein = dto.CustomProtein,
             CustomFat = dto.CustomFat,
             CustomCarbs = dto.CustomCarbs,
-            // Snapshot wartości z produktu w momencie dodania wpisu
+            // Snapshot product nutrition at entry creation time
             ProductNameSnapshot = product?.Name,
             KcalPer100gSnapshot = product != null ? (float)product.CaloriesPer100g : null,
             ProteinPer100gSnapshot = product != null ? (float)product.ProteinPer100g : null,
@@ -137,7 +136,7 @@ public class DiaryController : ControllerBase
         
         Console.WriteLine($"[DiaryController] Entry saved with ID: {entry.Id}");
 
-        // Załaduj Product dla zwracanego obiektu (jeśli ProductId != null)
+        // Load related Product for the response payload when ProductId is set
         if (entry.ProductId.HasValue)
         {
             await _context.Entry(entry).Reference(e => e.Product).LoadAsync();
@@ -147,8 +146,7 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Aktualizuje wpis w dzienniku (tylko jeśli należy do użytkownika lub jego partnera).
-    /// Pozwala na zmianę gramatury dla wpisów standardowych lub wartości makro dla wpisów customowych.
+    /// Updates an existing diary entry owned by the current user or their connected partner.
     /// PUT /api/diary/{id}
     /// </summary>
     [HttpPut("{id}")]
@@ -165,24 +163,24 @@ public class DiaryController : ControllerBase
             return NotFound();
         }
 
-        // Sprawdź uprawnienia
+        // Verify authorization
         var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
         if (!hasAccess)
         {
             return Forbid();
         }
 
-        // Aktualizacja wspólnych pól
+        // Update shared metadata fields
         entry.Date = dto.Date;
         entry.MealType = dto.MealType;
 
-        // Aktualizacja dla wpisu z produktem
+        // Update product-linked entry fields
         if (entry.ProductId.HasValue && dto.AmountInGrams.HasValue)
         {
             entry.AmountInGrams = dto.AmountInGrams;
         }
         
-        // Aktualizacja jednostek (opcjonalne)
+        // Update optional serving unit metadata
         if (dto.UnitKey != null)
         {
             entry.UnitKey = dto.UnitKey;
@@ -192,7 +190,7 @@ public class DiaryController : ControllerBase
             entry.UnitQuantity = dto.UnitQuantity;
         }
         
-        // Aktualizacja dla wpisu customowego
+        // Update custom entry fields
         if (entry.ProductId == null)
         {
             entry.CustomName = dto.CustomName ?? entry.CustomName;
@@ -208,7 +206,7 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa wpis z dziennika (tylko jeśli należy do użytkownika lub jego partnera).
+    /// Deletes a diary entry owned by the current user or their connected partner.
     /// DELETE /api/diary/{id}
     /// </summary>
     [HttpDelete("{id}")]
@@ -224,7 +222,7 @@ public class DiaryController : ControllerBase
             return NotFound();
         }
 
-        // Sprawdź uprawnienia
+        // Verify authorization
         var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
         if (!hasAccess)
         {
@@ -238,9 +236,8 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca historię użycia produktu w dzienniku użytkownika (lub partnera):
-    /// 2 ostatnie różne kombinacje (jednostka, ilość) oraz najczęściej używaną jednostkę.
-    /// Uwzględnia tylko wpisy z zapisaną jednostką (UnitKey != null).
+    /// Returns serving usage history for a product in the user's (or partner's) diary:
+    /// the 2 most recent distinct (unit, quantity) pairs and the most frequently used unit.
     /// GET /api/diary/product-usage/{productId}?targetUserId=2
     /// </summary>
     [HttpGet("product-usage/{productId:int}")]
@@ -258,7 +255,7 @@ public class DiaryController : ControllerBase
             }
         }
 
-        // Ostatnie 200 wpisów wystarczy do statystyki i nie obciąża bazy
+        // Scanning the latest 200 entries is sufficient for usage stats
         var entries = await _context.DiaryEntries
             .Where(e => e.UserId == userId
                         && e.ProductId == productId
@@ -282,7 +279,7 @@ public class DiaryController : ControllerBase
             }
         }
 
-        // Najczęstsza jednostka; przy remisie wygrywa ta użyta najpóźniej (entries są posortowane malejąco)
+        // Most frequently used unit; ties are broken by most recent usage
         var mostUsed = entries
             .Select((e, index) => new { e.UnitKey, e.UnitQuantity, Index = index })
             .GroupBy(e => e.UnitKey!)
@@ -300,7 +297,7 @@ public class DiaryController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera wpis po ID (potrzebne dla CreatedAtAction, tylko jeśli należy do użytkownika lub jego partnera).
+    /// Fetches a single diary entry by ID (used by CreatedAtAction).
     /// GET /api/diary/{id}
     /// </summary>
     [HttpGet("{id}")]
@@ -317,7 +314,7 @@ public class DiaryController : ControllerBase
             return NotFound();
         }
 
-        // Sprawdź uprawnienia
+        // Verify authorization
         var hasAccess = await _partnerService.CanAccessDiaryAsync(currentUserId, entry.UserId);
         if (!hasAccess)
         {
@@ -329,7 +326,7 @@ public class DiaryController : ControllerBase
 }
 
 /// <summary>
-/// DTO do zwracania historii użycia produktu przez użytkownika.
+/// DTO returning product serving usage history for a user.
 /// </summary>
 public class ProductUsageDto
 {

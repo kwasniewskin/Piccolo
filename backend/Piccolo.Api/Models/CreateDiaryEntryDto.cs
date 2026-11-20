@@ -1,8 +1,8 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// DTO do tworzenia nowego wpisu w dzienniku żywieniowym.
-/// Wspiera zarówno wpisy z produktem z bazy (ProductId), jak i szybkie wpisy (Custom*).
+/// DTO for creating a new diary entry.
+/// Supports both product-linked entries (ProductId) and custom entries (Custom*).
 /// </summary>
 public class CreateDiaryEntryDto
 {
@@ -11,30 +11,29 @@ public class CreateDiaryEntryDto
     public MealType MealType { get; set; }
     
     /// <summary>
-    /// ID użytkownika, dla którego tworzymy wpis.
-    /// Jeśli null, wpis jest tworzony dla zalogowanego użytkownika.
-    /// Jeśli podane, sprawdzane są uprawnienia partnerskie.
+    /// Target user ID for the entry.
+    /// Defaults to the authenticated user when null; partner access is checked otherwise.
     /// </summary>
     public int? TargetUserId { get; set; }
     
     /// <summary>
-    /// Opcjonalny ID produktu z bazy. Null dla szybkich wpisów.
+    /// Optional product ID. Null for custom Quick Add entries.
     /// </summary>
     public int? ProductId { get; set; }
     
     public double? AmountInGrams { get; set; }
     
     /// <summary>
-    /// Klucz jednostki użytej przy dodawaniu (np. "portion", "slice", "g").
+    /// Unit key used when logging (e.g. "portion", "slice", "g").
     /// </summary>
     public string? UnitKey { get; set; }
     
     /// <summary>
-    /// Ilość w jednostce (np. 3 dla "3 × porcja").
+    /// Quantity in the selected unit (e.g. 3 for "3 × portion").
     /// </summary>
     public double? UnitQuantity { get; set; }
     
-    // Pola dla szybkich wpisów (Quick Add) - wypełnione gdy ProductId == null
+    // Quick Add fields populated when ProductId == null
     public string? CustomName { get; set; }
     public float? CustomCalories { get; set; }
     public float? CustomProtein { get; set; }

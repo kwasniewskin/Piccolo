@@ -8,11 +8,11 @@ import { useLanguage } from './language-context'
 import { getTranslation } from './i18n'
 
 // ---------------------------------------------------------------------------
-// Typy
+// Types
 // ---------------------------------------------------------------------------
 
 export type PartnerInfo = {
-  /** Wewnętrzne ID partnera w backendzie (int). */
+  /** Internal partner user ID in the backend (int). */
   userId: number
   name: string | null
   email: string | null
@@ -23,16 +23,16 @@ export type ConnectionStatus = 'none' | 'connected' | 'loading'
 
 export type RefreshOptions = {
   /**
-   * Ciche odświeżanie (polling, powrót do karty): nie ustawia statusu 'loading',
-   * więc UI nie miga spinnerem, a błąd sieci nie zmienia aktualnego stanu.
+   * Silent refresh (polling, tab focus): skips 'loading' status
+   * so the UI does not flash a spinner and transient network errors do not clear state.
    */
   silent?: boolean
 }
 
 type PartnerContextValue = {
   /**
-   * ID dziennika, który oglądamy, do przekazania jako `targetUserId`.
-   * `undefined` = własny dziennik (backend sam ustala zalogowanego użytkownika).
+   * ID of the currently viewed diary passed as `targetUserId`.
+   * `undefined` = own diary (the backend resolves the authenticated user).
    */
   activeUserId: number | undefined
   isViewingPartner: boolean
@@ -54,14 +54,14 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
   const { language } = useLanguage()
   const [partnerInfo, setPartnerInfo] = useState<PartnerInfo | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('loading')
-  // Stan tylko w pamięci: po F5 zawsze wracamy do własnego dziennika.
+  // In-memory only: refreshing the page always returns to the user's own diary.
   const [viewingPartner, setViewingPartner] = useState(false)
 
   const isViewingPartner = viewingPartner && partnerInfo !== null
   const activeUserId = isViewingPartner ? partnerInfo!.userId : undefined
 
-  // Ostatni znany status (bez 'loading') – do wykrycia przejścia none → connected.
-  // null = jeszcze nie znamy statusu (pierwsze pobranie po zalogowaniu nie pokazuje toasta).
+  // Last known connection status (excluding 'loading') to detect none -> connected transitions.
+  // null = unknown on initial mount (suppresses toast on initial login fetch).
   const lastKnownStatusRef = useRef<'none' | 'connected' | null>(null)
   const inFlightRef = useRef(false)
   const languageRef = useRef(language)
@@ -69,7 +69,7 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
 
   const refreshConnection = useCallback(async (options?: RefreshOptions) => {
     const silent = options?.silent ?? false
-    // Polling i focus mogą się nałożyć – nie wysyłamy równoległych zapytań w tle
+    // Polling and window focus can overlap - prevent concurrent background requests
     if (silent && inFlightRef.current) return
     inFlightRef.current = true
     if (!silent) setConnectionStatus('loading')
@@ -100,8 +100,8 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('[Partner] Failed to refresh connection:', error)
-      // Ciche odświeżanie: zostawiamy poprzedni stan (chwilowy błąd sieci ≠ rozłączenie).
-      // Pełne odświeżanie: nie zostawiamy spinnera w nieskończoność.
+      // Silent refresh: preserve previous state (transient network error != disconnect).
+      // Full refresh: avoid leaving the spinner stuck indefinitely.
       if (!silent) {
         setConnectionStatus(lastKnownStatusRef.current ?? 'none')
       }
@@ -110,7 +110,7 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Pobierz status połączenia po zalogowaniu
+  // Fetch partner connection status after sign-in
   useEffect(() => {
     if (!isLoaded) return
     if (!isSignedIn) {
@@ -123,8 +123,8 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
     refreshConnection()
   }, [isLoaded, isSignedIn, refreshConnection])
 
-  // Po powrocie do karty/okna sprawdź status – partner mógł się w międzyczasie
-  // połączyć lub rozłączyć (bez tego druga osoba widziała zmianę dopiero po F5).
+  // Re-check status on tab/window focus in case the partner paired or disconnected
+  // elsewhere (otherwise the other person wouldn't see changes until a full reload).
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
 
@@ -141,7 +141,7 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoaded, isSignedIn, refreshConnection])
 
-  // 403 z API dziennika → wróć do własnego dziennika i pokaż komunikat
+  // 403 from diary API -> switch back to own diary and show toast
   const viewingRef = useRef(false)
   viewingRef.current = viewingPartner
 
@@ -157,7 +157,7 @@ export function PartnerProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(api.PARTNER_ACCESS_LOST_EVENT, handleAccessLost)
   }, [language, refreshConnection])
 
-  // Color shift: atrybut na <html>, żeby objął też portale (dialogi, toasty)
+  // Color shift: set data attribute on <html> so React portals (dialogs, toasts) inherit it too
   useEffect(() => {
     const root = document.documentElement
     if (isViewingPartner) {

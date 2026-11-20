@@ -190,7 +190,7 @@ def main() -> None:
         f_pkg = fit.get("packageWeightGrams") or extract_weight_grams(fit["name"])
         f_v_roots, f_v_pcts = variant_signature(make_search_name(fit["name"]))
 
-        # Nazwa bez powtarzania marki (czestsza rozbieznosc: Fitatu ma "Piątnica Serek...", OFF "Serek...")
+        # Name without repeated brand prefix (common mismatch across sources)
         f_no_brand_toks = [t for t in f_toks if t not in f_btoks] or f_toks
         f_no_brand = " ".join(f_no_brand_toks)
         f_nb_set = set(f_no_brand_toks)

@@ -20,6 +20,8 @@ import {
 import { toast as sonnerToast } from 'sonner'
 import * as api from '@/lib/api'
 import { macrosFor, round1, sumMacros } from '@/lib/nutrition'
+import { getMealLabel, getTranslation, type Language } from '@/lib/i18n'
+import { useOptionalLanguage } from '@/lib/language-context'
 import { usePartner } from '@/lib/partner-context'
 import type { Macros, MealType, Product } from '@/lib/types'
 import type {
@@ -82,12 +84,12 @@ type MealDraftState = {
 
 const SAVE_MODE_STORAGE_KEY = 'piccolo:ai-save-mode'
 
-const MEAL_OPTIONS: Array<{ id: MealType; label: string }> = [
-  { id: 'breakfast', label: 'Śniadanie' },
-  { id: 'second-breakfast', label: 'Drugie śniadanie' },
-  { id: 'lunch', label: 'Obiad' },
-  { id: 'snack', label: 'Przekąska' },
-  { id: 'dinner', label: 'Kolacja' },
+const MEAL_TYPE_IDS: MealType[] = [
+  'breakfast',
+  'second-breakfast',
+  'lunch',
+  'snack',
+  'dinner',
 ]
 
 function makeLocalId(prefix: string): string {
@@ -106,11 +108,14 @@ function shiftIsoDate(isoDate: string, days: number): string {
   return `${y}-${m}-${day}`
 }
 
-function formatPortionLabel(portions: number): string {
-  const formatted = portions.toLocaleString('pl-PL', {
+function formatPortionLabel(portions: number, language: Language = 'pl'): string {
+  const formatted = portions.toLocaleString(language === 'en' ? 'en-US' : 'pl-PL', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
+  if (language === 'en') {
+    return `${formatted} ${portions === 1 ? 'portion' : 'portions'}`
+  }
   if (portions === 1) return `${formatted} porcja`
   if (portions > 1 && portions < 5 && Number.isInteger(portions)) {
     return `${formatted} porcje`
@@ -145,7 +150,7 @@ async function compressImageToDataUrl(file: File): Promise<string> {
     canvas.width = Math.max(1, width)
     canvas.height = Math.max(1, height)
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Brak kontekstu Canvas 2D')
+    if (!ctx) throw new Error('Canvas 2D context unavailable')
 
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/jpeg', quality)
@@ -187,8 +192,28 @@ function sortCandidatesLocalFirst(products: Product[]): Product[] {
   return [...local, ...off]
 }
 
+/**
+ * Prevents bogus partial/substring catalog matches (e.g., matching "broccoli" to
+ * 418 kcal vegetable chips or "olive oil" to a 150 kcal salad dressing) from being
+ * auto-selected as the ingredient's database match.
+ */
+function isPlausibleLocalMatch(
+  candidate: Product,
+  ing: AiAnalyzedIngredient
+): boolean {
+  const aiKcal = ing.nutritionPer100g.calories
+  if (aiKcal > 0) {
+    if (candidate.caloriesPer100g <= 0) return false
+    const diff = Math.abs(candidate.caloriesPer100g - aiKcal)
+    const maxAllowedDiff = Math.max(45, aiKcal * 0.45)
+    if (diff > maxAllowedDiff) return false
+  }
+  return true
+}
+
 async function resolveSingleIngredientMatch(
   ing: AiAnalyzedIngredient,
+  language: Language,
   previousIngredients?: EditableIngredient[]
 ): Promise<EditableIngredient> {
   const prevMatch = previousIngredients?.find(
@@ -215,7 +240,7 @@ async function resolveSingleIngredientMatch(
     }
   }
 
-  const rawResults = await api.searchProducts(ing.searchQuery)
+  const rawResults = await api.searchProducts(ing.searchQuery, language)
   const candidates = sortCandidatesLocalFirst(rawResults)
   const localCandidates = candidates.filter(
     (p) => p.id > 0 && p.dataSource !== 'OFF'
@@ -225,7 +250,7 @@ async function resolveSingleIngredientMatch(
     const barcode = ing.newProductDetails?.barcode?.trim()
     let existingByBarcode: Product | null = null
     if (barcode) {
-      const found = await api.getProductByBarcode(barcode)
+      const found = await api.getProductByBarcode(barcode, language)
       if (found && found.id > 0 && found.dataSource !== 'OFF') {
         existingByBarcode = found
       }
@@ -265,7 +290,11 @@ async function resolveSingleIngredientMatch(
     }
   }
 
-  if (localCandidates.length > 0) {
+  const plausibleLocalMatch = localCandidates.find((p) =>
+    isPlausibleLocalMatch(p, ing)
+  )
+
+  if (plausibleLocalMatch) {
     return {
       localId: makeLocalId('ing'),
       rawName: ing.rawName,
@@ -277,7 +306,7 @@ async function resolveSingleIngredientMatch(
       nutritionPer100g: ing.nutritionPer100g,
       newProductDetails: ing.newProductDetails,
       candidates,
-      selectedProduct: localCandidates[0],
+      selectedProduct: plausibleLocalMatch,
     }
   }
 
@@ -334,6 +363,8 @@ export function AiMealAssistant({
   onComplete,
   showToast,
 }: Props) {
+  const { language } = useOptionalLanguage()
+  const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key)
   const { partnerInfo, isViewingPartner } = usePartner()
   const hasPartner = partnerInfo !== null
   const partnerName = partnerInfo?.name || partnerInfo?.email || 'Partner'
@@ -341,7 +372,7 @@ export function AiMealAssistant({
   const [prompt, setPrompt] = useState('')
   const [images, setImages] = useState<string[]>([])
   const [analyzing, setAnalyzing] = useState(false)
-  const [analyzingLabel, setAnalyzingLabel] = useState('Analizuję posiłek...')
+  const [analyzingLabel, setAnalyzingLabel] = useState(t('ai-analyzing-default'))
 
   const [draft, setDraft] = useState<MealDraftState | null>(null)
   const [activeTabIdx, setActiveTabIdx] = useState(0)
@@ -390,7 +421,7 @@ export function AiMealAssistant({
       setter((prev) => [...prev, ...compressed.filter(Boolean)])
     } catch (err) {
       console.error('Image compression error:', err)
-      showToast('Nie udało się przetworzyć wybranych zdjęć')
+      showToast(t('ai-error-image-compression'))
     } finally {
       e.target.value = ''
     }
@@ -402,15 +433,15 @@ export function AiMealAssistant({
     attachedImages: string[]
   }) {
     if (!options.text.trim() && options.attachedImages.length === 0) {
-      showToast('Wpisz opis posiłku lub dodaj zdjęcie')
+      showToast(t('ai-error-empty-input'))
       return
     }
 
     setAnalyzing(true)
     setAnalyzingLabel(
       options.isRefinement
-        ? 'Przeliczam korektę z AI...'
-        : 'Analizuję tekst i zdjęcia...'
+        ? t('ai-analyzing-refinement')
+        : t('ai-analyzing-input')
     )
 
     try {
@@ -421,6 +452,7 @@ export function AiMealAssistant({
           isViewingPartner,
           hasPartner,
           partnerName: hasPartner ? partnerName : null,
+          language,
         },
         ...(options.isRefinement && draft
           ? {
@@ -442,25 +474,25 @@ export function AiMealAssistant({
 
       const data = await response.json()
       if (!response.ok) {
-        showToast(data?.error || 'Nie udało się przeanalizować posiłku')
+        showToast(data?.error || t('ai-error-analyze'))
         return
       }
 
       const analyzed = data as AnalyzeMealResponse
-      setAnalyzingLabel('Dopasowuję produkty z bazy...')
+      setAnalyzingLabel(t('ai-matching-db'))
 
       const resolvedMeals: EditableMealItem[] = await Promise.all(
         analyzed.meals.map(async (m, idx) => {
           const prevMeal = options.isRefinement ? draft?.meals[idx] : undefined
           const matchedIngredients = await Promise.all(
             m.ingredients.map((ing) =>
-              resolveSingleIngredientMatch(ing, prevMeal?.ingredients)
+              resolveSingleIngredientMatch(ing, language, prevMeal?.ingredients)
             )
           )
           return {
             localId: makeLocalId('meal'),
             dishName: m.dishName,
-            tabLabel: m.tabLabel || `Posiłek ${idx + 1}`,
+            tabLabel: m.tabLabel || `${t('ai-tab-fallback')} ${idx + 1}`,
             totalPortions: m.totalPortions,
             enabled: prevMeal ? prevMeal.enabled : true,
             ingredients: matchedIngredients,
@@ -496,7 +528,7 @@ export function AiMealAssistant({
       }
     } catch (err) {
       console.error('AI meal analysis error:', err)
-      showToast('Błąd połączenia z asystentem AI')
+      showToast(t('ai-error-connection'))
     } finally {
       setAnalyzing(false)
     }
@@ -546,14 +578,14 @@ export function AiMealAssistant({
         ...m.ingredients,
         {
           localId: id,
-          rawName: 'Nowy składnik',
+          rawName: t('ai-new-ingredient'),
           searchQuery: '',
           amountGrams: 100,
           sourceType: 'ai_estimated',
           mode: 'ai',
           saveToDatabase: false,
           nutritionPer100g: { calories: 0, protein: 0, fat: 0, carbs: 0 },
-          newProductDetails: { name: 'Nowy składnik' },
+          newProductDetails: { name: t('ai-new-ingredient') },
           candidates: [],
           selectedProduct: null,
         },
@@ -614,16 +646,16 @@ export function AiMealAssistant({
     if (!draft) return
     const enabledMeals = draft.meals.filter((m) => m.enabled)
     if (enabledMeals.length === 0) {
-      showToast('Zaznacz przynajmniej jeden posiłek do dodania')
+      showToast(t('ai-select-meal-error'))
       return
     }
     for (const m of enabledMeals) {
       if (m.ingredients.length === 0) {
-        showToast(`Dodaj składniki w zakładce „${m.tabLabel}”`)
+        showToast(`${t('ai-add-ingredients-prefix')} "${m.tabLabel}"`)
         return
       }
       if (m.allocations.length === 0 || !(m.totalPortions > 0)) {
-        showToast(`Sprawdź porcje i przypisania w „${m.tabLabel}”`)
+        showToast(`${t('ai-check-allocations-prefix')} "${m.tabLabel}"`)
         return
       }
     }
@@ -634,7 +666,7 @@ export function AiMealAssistant({
       const importedOffCache = new Map<string, Product>()
       const createdByNameCache = new Map<string, Product>()
 
-      // 1. Zapisz nowe produkty i zaimportuj OFF dla wszystkich włączonych zakładek
+      // 1. Create custom/scanned products and import OFF matches for all enabled meal tabs
       for (const m of enabledMeals) {
         for (const ing of m.ingredients) {
           let product = ing.mode === 'db' ? ing.selectedProduct : null
@@ -643,7 +675,7 @@ export function AiMealAssistant({
             const details = ing.newProductDetails
             const productName = (details?.name || ing.rawName).trim()
             if (!productName) {
-              showToast('Podaj nazwę dla zapisywanego produktu')
+              showToast(t('ai-enter-product-name'))
               setSaving(false)
               return
             }
@@ -673,7 +705,9 @@ export function AiMealAssistant({
               })
 
               if (!created) {
-                showToast(`Nie udało się zapisać produktu "${productName}" do bazy`)
+                showToast(
+                  `${t('ai-save-product-failed-prefix')} "${productName}" ${t('ai-save-product-failed-suffix')}`
+                )
                 setSaving(false)
                 return
               }
@@ -690,7 +724,7 @@ export function AiMealAssistant({
             } else {
               const imported = await api.importProduct(product)
               if (!imported) {
-                showToast(`Nie udało się zaimportować produktu "${product.name}"`)
+                showToast(`${t('ai-import-product-failed-prefix')} "${product.name}"`)
                 setSaving(false)
                 return
               }
@@ -706,10 +740,10 @@ export function AiMealAssistant({
       let createdCount = 0
       let failedCount = 0
 
-      // 2. Zapisz wpisy do dziennika
+      // 2. Persist diary entries across enabled tabs and allocations
       for (const m of enabledMeals) {
         const dishMacros = sumMacros(m.ingredients.map(getIngredientMacros))
-        const safeDishName = m.dishName.trim() || 'Posiłek AI'
+        const safeDishName = m.dishName.trim() || t('ai-meal-fallback-name')
 
         for (const alloc of m.allocations) {
           const entryTargetUserId =
@@ -722,7 +756,7 @@ export function AiMealAssistant({
           if (saveMode === 'single_dish') {
             const entryName =
               m.totalPortions !== 1 || alloc.portions !== 1
-                ? `${safeDishName} (${formatPortionLabel(alloc.portions)})`
+                ? `${safeDishName} (${formatPortionLabel(alloc.portions, language)})`
                 : safeDishName
 
             const created = await api.createDiaryEntry(
@@ -786,33 +820,33 @@ export function AiMealAssistant({
       }
 
       if (failedCount > 0 && createdCount === 0) {
-        showToast('Nie udało się zapisać wpisów w dzienniku')
+        showToast(t('ai-save-failed-all'))
         return
       }
 
       if (failedCount > 0) {
         sonnerToast.warning(
-          `Dodano ${createdCount} wpisów, ale ${failedCount} nie udało się zapisać.`
+          `${t('ai-saved-many-prefix')} ${createdCount} ${t('ai-saved-partial-middle')} ${failedCount} ${t('ai-saved-partial-suffix')}`
         )
       } else {
         sonnerToast.success(
           createdCount === 1
-            ? 'Dodano posiłek z AI do dziennika!'
-            : `Dodano ${createdCount} wpisów z AI do dziennika!`
+            ? t('ai-saved-one')
+            : `${t('ai-saved-many-prefix')} ${createdCount} ${t('ai-saved-many-suffix')}`
         )
       }
 
       onComplete()
     } catch (err) {
       console.error('Error saving AI meal:', err)
-      showToast('Wystąpił błąd podczas zapisywania posiłku')
+      showToast(t('ai-save-meal-error'))
     } finally {
       setSaving(false)
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Widok 1: Wprowadzanie danych (przed analizą AI)
+  // View 1: Meal input (before AI analysis)
   // ---------------------------------------------------------------------------
   if (!draft) {
     return (
@@ -821,16 +855,16 @@ export function AiMealAssistant({
         <div className="rounded-2xl bg-primary/10 px-4 py-3 text-sm text-foreground">
           <div className="mb-1 flex items-center gap-1.5 font-semibold text-primary">
             <Sparkles className="size-4" />
-            Asystent posiłków AI
+            {t('ai-assistant-title')}
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Opisz posiłek, wklej przepis lub dodaj zdjęcie kartki z gramaturami oraz etykiet nowych produktów.
+            {t('ai-assistant-subtitle')}
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
           <label htmlFor="ai-meal-prompt" className="text-sm font-medium">
-            Co przygotowaliście?
+            {t('ai-prompt-label')}
           </label>
           <textarea
             id="ai-meal-prompt"
@@ -840,8 +874,8 @@ export function AiMealAssistant({
             disabled={analyzing}
             placeholder={
               hasPartner
-                ? 'Np. Kurczak curry z kartki, ale zamiast śmietany 150g skyru. Wyszły 4 porcje: po 1 na dziś i jutro dla mnie i dla partnera.'
-                : 'Np. 200g piersi z kurczaka, 100g ryżu, łyżka oliwy i warzywa. Wyszły 2 porcje: 1 na dziś, 1 na jutro.'
+                ? t('ai-prompt-placeholder-partner')
+                : t('ai-prompt-placeholder-solo')
             }
             className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
           />
@@ -850,11 +884,11 @@ export function AiMealAssistant({
         <div className="flex flex-col gap-2.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
-              Zdjęcia (kartka, przepis, etykiety)
+              {t('ai-photos-label')}
             </span>
             {images.length > 0 && (
               <span className="text-xs text-muted-foreground">
-                Dodano: {images.length}
+                {t('ai-photos-added')} {images.length}
               </span>
             )}
           </div>
@@ -867,7 +901,7 @@ export function AiMealAssistant({
               className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 py-3 text-xs font-semibold transition-transform active:scale-[0.98] hover:bg-secondary disabled:opacity-50"
             >
               <Camera className="size-4 text-primary" />
-              Zrób zdjęcie
+              {t('ai-take-photo')}
             </button>
             <button
               type="button"
@@ -876,7 +910,7 @@ export function AiMealAssistant({
               className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card px-3 py-3 text-xs font-semibold transition-transform active:scale-[0.98] hover:bg-secondary disabled:opacity-50"
             >
               <ImagePlus className="size-4 text-primary" />
-              Wybierz zdjęcia
+              {t('ai-choose-photos')}
             </button>
           </div>
 
@@ -903,7 +937,7 @@ export function AiMealAssistant({
                 <div key={idx} className="relative">
                   <img
                     src={src}
-                    alt={`Zdjęcie ${idx + 1}`}
+                    alt={`${t('ai-photo-alt')} ${idx + 1}`}
                     className="size-16 rounded-xl border border-border object-cover"
                   />
                   <button
@@ -912,7 +946,7 @@ export function AiMealAssistant({
                     onClick={() =>
                       setImages((prev) => prev.filter((_, i) => i !== idx))
                     }
-                    aria-label="Usuń zdjęcie"
+                    aria-label={t('ai-remove-photo')}
                     className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-xs font-bold text-white shadow"
                   >
                     <X className="size-3" />
@@ -930,7 +964,7 @@ export function AiMealAssistant({
             onClick={onBack}
             className="flex-1 rounded-full bg-secondary py-3 text-sm font-semibold transition-transform active:scale-[0.98] disabled:opacity-50"
           >
-            Wróć
+            {t('back')}
           </button>
           <button
             type="button"
@@ -952,7 +986,7 @@ export function AiMealAssistant({
             ) : (
               <>
                 <Sparkles className="size-4" />
-                <span>Analizuj z AI</span>
+                <span>{t('ai-analyze-btn')}</span>
               </>
             )}
           </button>
@@ -963,7 +997,7 @@ export function AiMealAssistant({
   }
 
   // ---------------------------------------------------------------------------
-  // Widok 2: Odchudzone podsumowanie 1:1 Piccolo
+  // View 2: Compact 1:1 Piccolo meal review summary
   // ---------------------------------------------------------------------------
   const activeMeal = draft.meals[activeTabIdx] ?? draft.meals[0]
   const dishMacros = sumMacros(activeMeal.ingredients.map(getIngredientMacros))
@@ -974,23 +1008,25 @@ export function AiMealAssistant({
   const enabledCount = draft.meals.filter((m) => m.enabled).length
 
   const saveLabel =
-    saveMode === 'single_dish' ? '1 łączny wpis' : 'Osobne składniki'
+    saveMode === 'single_dish'
+      ? t('ai-mode-single-short')
+      : t('ai-mode-separate-short')
   const whereLabel = hasMultipleTabs
-    ? `${enabledCount} z ${draft.meals.length} zakładek`
+    ? `${enabledCount} ${t('ai-tabs-selected')} ${draft.meals.length} ${t('ai-tabs-word')}`
     : activeMeal.allocations.length > 1
-    ? `${activeMeal.allocations.length} wpisy`
-    : `${activeMeal.allocations[0]?.target === 'partner' ? partnerName : 'Ja'} · ${
+    ? `${activeMeal.allocations.length} ${t('ai-entries-word')}`
+    : `${activeMeal.allocations[0]?.target === 'partner' ? partnerName : t('ai-me')} · ${
         activeMeal.allocations[0]?.date === date
-          ? 'Dziś'
+          ? t('ai-today')
           : activeMeal.allocations[0]?.date === tomorrowDate
-          ? 'Jutro'
+          ? t('ai-tomorrow')
           : activeMeal.allocations[0]?.date
       }`
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
       <div className="flex flex-col gap-3">
-      {/* Zakładki (tylko gdy wykryto >1 osobny talerz / posiłek) */}
+      {/* Tabs (shown when >1 separate plate/meal detected) */}
       {hasMultipleTabs && (
         <div
           className="grid gap-1.5 rounded-2xl bg-card p-1"
@@ -1022,7 +1058,7 @@ export function AiMealAssistant({
         </div>
       )}
 
-      {/* Kompaktowy pasek podsumowania AI + Popraw z AI */}
+      {/* Compact AI summary bar + Refine with AI */}
       <div className="flex flex-col gap-2 rounded-2xl bg-primary/10 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
@@ -1058,14 +1094,14 @@ export function AiMealAssistant({
               }
             }}
             disabled={analyzing}
-            placeholder="Popraw z AI (np. serek był wysokobiałkowy, BAZ to bułka...)"
+            placeholder={t('ai-refine-placeholder')}
             className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary"
           />
           <button
             type="button"
             disabled={analyzing}
             onClick={() => refineImageInputRef.current?.click()}
-            title="Dodaj zdjęcie etykiety lub notatki"
+            title={t('ai-refine-photo-title')}
             className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             <ImagePlus className="size-4" />
@@ -1090,7 +1126,7 @@ export function AiMealAssistant({
             ) : (
               <RefreshCw className="size-3.5" />
             )}
-            <span>Przelicz</span>
+            <span>{t('ai-recalculate-btn')}</span>
           </button>
         </div>
 
@@ -1129,12 +1165,12 @@ export function AiMealAssistant({
         )}
       </div>
 
-      {/* Karta dania */}
+      {/* Dish summary card */}
       <div className="flex flex-col gap-2 rounded-3xl bg-card p-3.5 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <input
             type="text"
-            aria-label="Nazwa dania"
+            aria-label={t('ai-dish-name-aria')}
             value={activeMeal.dishName}
             onChange={(e) =>
               updateActiveMeal((m) => ({ ...m, dishName: e.target.value }))
@@ -1148,10 +1184,10 @@ export function AiMealAssistant({
 
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground tabular-nums">
           <span>
-            <span className="font-semibold text-protein">B</span>{' '}
+            <span className="font-semibold text-protein">{t('protein-short')}</span>{' '}
             {dishMacros.protein}g ·{' '}
-            <span className="font-semibold text-fat">T</span> {dishMacros.fat}g
-            · <span className="font-semibold text-carbs">W</span>{' '}
+            <span className="font-semibold text-fat">{t('fat-short')}</span> {dishMacros.fat}g
+            · <span className="font-semibold text-carbs">{t('carbs-short')}</span>{' '}
             {dishMacros.carbs}g
           </span>
           {hasMultipleTabs && (
@@ -1164,7 +1200,7 @@ export function AiMealAssistant({
                 }
                 className="size-3.5 rounded accent-primary"
               />
-              <span>Dodaj tę zakładkę</span>
+              <span>{t('ai-include-tab')}</span>
             </label>
           )}
         </div>
@@ -1174,9 +1210,9 @@ export function AiMealAssistant({
           activeMeal.allocations.length > 1) && (
           <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-2">
             <div className="text-xs">
-              <span className="font-medium">Porcje w daniu</span>
+              <span className="font-medium">{t('ai-portions-in-dish')}</span>
               <span className="ml-1.5 text-[11px] text-muted-foreground">
-                (1 por. = {perPortionKcal} kcal)
+                ({t('ai-per-portion')} {perPortionKcal} kcal)
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -1199,7 +1235,7 @@ export function AiMealAssistant({
                 value={activeMeal.totalPortions}
                 min={0.1}
                 allowZero={false}
-                ariaLabel="Liczba porcji w daniu"
+                ariaLabel={t('ai-portions-aria')}
                 onChange={(val) =>
                   updateActiveMeal((m) => ({ ...m, totalPortions: val }))
                 }
@@ -1223,11 +1259,11 @@ export function AiMealAssistant({
         )}
       </div>
 
-      {/* Kompaktowa lista składników (1 linijka na składnik, rozwijana po kliknięciu) */}
+      {/* Compact ingredient list (1 row per ingredient, expands on tap) */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-semibold text-muted-foreground">
-            Składniki ({activeMeal.ingredients.length}) · tapnij, aby edytować
+            {t('ai-ingredients-heading')} ({activeMeal.ingredients.length}) · {t('ai-tap-to-edit')}
           </span>
           <button
             type="button"
@@ -1235,7 +1271,7 @@ export function AiMealAssistant({
             className="flex items-center gap-0.5 text-xs font-semibold text-primary hover:underline"
           >
             <Plus className="size-3.5" />
-            Dodaj
+            {t('ai-add-btn')}
           </button>
         </div>
 
@@ -1244,6 +1280,7 @@ export function AiMealAssistant({
             <CompactIngredientRow
               key={ing.localId}
               ingredient={ing}
+              language={language}
               isExpanded={expandedIngId === ing.localId}
               onToggle={() =>
                 setExpandedIngId((prev) =>
@@ -1258,7 +1295,7 @@ export function AiMealAssistant({
         </div>
       </div>
 
-      {/* Zwijane opcje zapisu i przydziału dni/osób */}
+      {/* Collapsible save mode & day/person allocation options */}
       <div className="overflow-hidden rounded-3xl bg-card shadow-sm">
         <button
           type="button"
@@ -1271,11 +1308,11 @@ export function AiMealAssistant({
           <span className="flex items-center gap-1 text-muted-foreground">
             {optionsExpanded ? (
               <>
-                Zwiń <ChevronUp className="size-3.5" />
+                {t('ai-collapse')} <ChevronUp className="size-3.5" />
               </>
             ) : (
               <>
-                Opcje <ChevronDown className="size-3.5" />
+                {t('ai-options')} <ChevronDown className="size-3.5" />
               </>
             )}
           </span>
@@ -1283,7 +1320,7 @@ export function AiMealAssistant({
 
         {optionsExpanded && (
           <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3">
-            {/* Przełącznik trybu zapisu */}
+            {/* Save mode toggle */}
             <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-background p-1">
               <button
                 type="button"
@@ -1294,7 +1331,7 @@ export function AiMealAssistant({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                1 łączny wpis dania
+                {t('ai-mode-single-btn')}
               </button>
               <button
                 type="button"
@@ -1305,11 +1342,11 @@ export function AiMealAssistant({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                Osobne składniki z bazy
+                {t('ai-mode-separate-btn')}
               </button>
             </div>
 
-            {/* Przypisania (osoba / dzień / posiłek / porcje) */}
+            {/* Allocations (person / date / meal slot / portions) */}
             <div className="flex flex-col gap-2">
               {activeMeal.allocations.map((alloc) => {
                 const allocKcal = Math.round(
@@ -1338,7 +1375,7 @@ export function AiMealAssistant({
                             }`}
                           >
                             <User className="size-3" />
-                            Ja
+                            {t('ai-me')}
                           </button>
                           <button
                             type="button"
@@ -1361,7 +1398,7 @@ export function AiMealAssistant({
                       ) : (
                         <span className="flex items-center gap-1 text-xs font-semibold">
                           <User className="size-3 text-primary" />
-                          Mój dziennik
+                          {t('ai-my-diary')}
                         </span>
                       )}
 
@@ -1369,7 +1406,7 @@ export function AiMealAssistant({
                         <button
                           type="button"
                           onClick={() => removeAllocation(alloc.localId)}
-                          aria-label="Usuń wpis"
+                          aria-label={t('ai-delete-entry-aria')}
                           className="rounded-lg p-1 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="size-3.5" />
@@ -1392,7 +1429,7 @@ export function AiMealAssistant({
                             : 'bg-card text-muted-foreground'
                         }`}
                       >
-                        Dziś
+                        {t('ai-today')}
                       </button>
                       <button
                         type="button"
@@ -1408,7 +1445,7 @@ export function AiMealAssistant({
                             : 'bg-card text-muted-foreground'
                         }`}
                       >
-                        Jutro
+                        {t('ai-tomorrow')}
                       </button>
                       <input
                         type="date"
@@ -1434,9 +1471,9 @@ export function AiMealAssistant({
                         }
                         className="min-w-0 flex-1 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary"
                       >
-                        {MEAL_OPTIONS.map((opt) => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.label}
+                        {MEAL_TYPE_IDS.map((mealId) => (
+                          <option key={mealId} value={mealId}>
+                            {getMealLabel(language, mealId)}
                           </option>
                         ))}
                       </select>
@@ -1461,7 +1498,7 @@ export function AiMealAssistant({
                           value={alloc.portions}
                           min={0.1}
                           allowZero={false}
-                          ariaLabel="Liczba porcji"
+                          ariaLabel={t('ai-allocation-portions-aria')}
                           onChange={(val) =>
                             updateAllocation(alloc.localId, (a) => ({
                               ...a,
@@ -1503,7 +1540,7 @@ export function AiMealAssistant({
                 className="flex flex-1 items-center justify-center gap-1 rounded-2xl border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary"
               >
                 <Plus className="size-3.5" />
-                Kolejny dzień / osoba
+                {t('ai-add-allocation')}
               </button>
               {!showPortionStepper && activeMeal.totalPortions === 1 && (
                 <button
@@ -1511,7 +1548,7 @@ export function AiMealAssistant({
                   onClick={() => setShowPortionStepper(true)}
                   className="rounded-2xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  Podziel porcje
+                  {t('ai-split-portions')}
                 </button>
               )}
             </div>
@@ -1519,7 +1556,7 @@ export function AiMealAssistant({
         )}
       </div>
 
-      {/* Dolne przyciski zapisu */}
+      {/* Bottom save actions */}
       <div className="flex gap-2 pt-1">
         <button
           type="button"
@@ -1527,7 +1564,7 @@ export function AiMealAssistant({
           onClick={() => setDraft(null)}
           className="flex-1 rounded-full bg-secondary py-3 text-xs font-semibold transition-transform active:scale-[0.98] disabled:opacity-50"
         >
-          Nowa analiza
+          {t('ai-new-analysis')}
         </button>
         <button
           type="button"
@@ -1538,15 +1575,15 @@ export function AiMealAssistant({
           {saving ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              <span>Zapisywanie...</span>
+              <span>{t('ai-saving')}</span>
             </>
           ) : (
             <>
               <Check className="size-4" />
               <span>
                 {hasMultipleTabs
-                  ? `Zatwierdź i dodaj (${enabledCount})`
-                  : 'Zatwierdź i dodaj do dziennika'}
+                  ? `${t('ai-confirm-n')} (${enabledCount})`
+                  : t('ai-confirm-single')}
               </span>
             </>
           )}
@@ -1559,6 +1596,7 @@ export function AiMealAssistant({
 
 function CompactIngredientRow({
   ingredient,
+  language,
   isExpanded,
   onToggle,
   onUpdate,
@@ -1566,12 +1604,14 @@ function CompactIngredientRow({
   showToast,
 }: {
   ingredient: EditableIngredient
+  language: Language
   isExpanded: boolean
   onToggle: () => void
   onUpdate: (updater: (ing: EditableIngredient) => EditableIngredient) => void
   onRemove: () => void
   showToast: (msg: string) => void
 }) {
+  const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key)
   const [searchTerm, setSearchTerm] = useState(ingredient.searchQuery)
   const [searchingDb, setSearchingDb] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -1593,7 +1633,7 @@ function CompactIngredientRow({
   async function handleManualSearch() {
     setSearchingDb(true)
     const results = sortCandidatesLocalFirst(
-      await api.searchProducts(searchTerm.trim())
+      await api.searchProducts(searchTerm.trim(), language)
     )
     setSearchingDb(false)
     onUpdate((ing) => ({ ...ing, candidates: results }))
@@ -1602,7 +1642,7 @@ function CompactIngredientRow({
   async function handleRecalculateVariant() {
     const targetName = (ingredient.newProductDetails?.name || ingredient.rawName).trim()
     if (!targetName) {
-      showToast('Wpisz nazwę wariantu produktu')
+      showToast(t('ai-enter-variant-name'))
       return
     }
     setRecalculating(true)
@@ -1614,20 +1654,24 @@ function CompactIngredientRow({
           recalculateIngredient: {
             name: targetName,
             amountGrams: ingredient.amountGrams,
+            language,
           },
         }),
       })
       const data = await res.json()
       if (!res.ok) {
-        showToast(data?.error || 'Nie udało się przeliczyć wariantu')
+        showToast(data?.error || t('ai-recalc-failed'))
         return
       }
       const { ingredient: nextIng } = data as RecalculateIngredientResponse
       const dbMatches = sortCandidatesLocalFirst(
-        await api.searchProducts(nextIng.searchQuery)
+        await api.searchProducts(nextIng.searchQuery, language)
       )
       const localMatch = dbMatches.find(
-        (p) => p.id > 0 && p.dataSource !== 'OFF'
+        (p) =>
+          p.id > 0 &&
+          p.dataSource !== 'OFF' &&
+          isPlausibleLocalMatch(p, nextIng)
       )
 
       setSearchTerm(nextIng.searchQuery)
@@ -1647,7 +1691,7 @@ function CompactIngredientRow({
       }))
     } catch (err) {
       console.error('Recalculate variant error:', err)
-      showToast('Błąd połączenia z AI')
+      showToast(t('ai-error-connection'))
     } finally {
       setRecalculating(false)
     }
@@ -1669,13 +1713,13 @@ function CompactIngredientRow({
       })
       const data = await res.json()
       if (!res.ok) {
-        showToast(data?.error || 'Nie udało się odczytać etykiety')
+        showToast(data?.error || t('ai-label-read-failed'))
         return
       }
 
       const barcode = typeof data.barcode === 'string' ? data.barcode.trim() : ''
       if (barcode) {
-        const existing = await api.getProductByBarcode(barcode)
+        const existing = await api.getProductByBarcode(barcode, language)
         if (existing && existing.id > 0 && existing.dataSource !== 'OFF') {
           onUpdate((ing) => ({
             ...ing,
@@ -1684,7 +1728,7 @@ function CompactIngredientRow({
             saveToDatabase: false,
             candidates: [existing, ...ing.candidates.filter((c) => c.id !== existing.id)],
           }))
-          sonnerToast.success(`Znaleziono w bazie: ${existing.name}`)
+          sonnerToast.success(`${t('ai-found-in-db')} ${existing.name}`)
           return
         }
       }
@@ -1717,10 +1761,10 @@ function CompactIngredientRow({
           ingredients: data.ingredients || undefined,
         },
       }))
-      sonnerToast.success('Odczytano etykietę! Produkt zostanie zapisany w bazie.')
+      sonnerToast.success(t('ai-label-read-success'))
     } catch (err) {
       console.error('Label scan error:', err)
-      showToast('Błąd podczas skanowania etykiety')
+      showToast(t('ai-label-scan-error'))
     } finally {
       setScanningLabel(false)
       e.target.value = ''
@@ -1729,7 +1773,7 @@ function CompactIngredientRow({
 
   return (
     <div>
-      {/* 1-linijkowy wiersz kompaktowy */}
+      {/* 1-line compact ingredient row */}
       <button
         type="button"
         onClick={onToggle}
@@ -1750,27 +1794,27 @@ function CompactIngredientRow({
         </div>
       </button>
 
-      {/* Rozwinięty panel edycji (tylko dla klikniętego składnika) */}
+      {/* Expanded editor panel (only for the tapped ingredient) */}
       {isExpanded && (
         <div className="flex flex-col gap-2.5 border-t border-border/50 bg-background/50 px-4 py-3">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="truncate text-muted-foreground">
               {ingredient.mode === 'db' && ingredient.selectedProduct
-                ? `Z bazy: ${ingredient.selectedProduct.name}`
+                ? `${t('ai-source-db')} ${ingredient.selectedProduct.name}`
                 : ingredient.mode === 'new_product'
-                ? 'Ze zdjęcia etykiety (nowy produkt)'
-                : 'Szacunek AI (brak w bazie)'}
+                ? t('ai-source-label')
+                : t('ai-source-ai')}
             </span>
             <button
               type="button"
               onClick={onRemove}
               className="shrink-0 font-semibold text-destructive hover:underline"
             >
-              Usuń
+              {t('ai-delete')}
             </button>
           </div>
 
-          {/* Edycja nazwy i wagi */}
+          {/* Name and weight inputs */}
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -1792,7 +1836,7 @@ function CompactIngredientRow({
                   },
                 }))
               }}
-              placeholder="Nazwa składnika"
+              placeholder={t('ai-ingredient-name-placeholder')}
               className="min-w-0 flex-1 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary"
             />
             <div className="flex shrink-0 items-center gap-1">
@@ -1800,7 +1844,7 @@ function CompactIngredientRow({
                 value={ingredient.amountGrams}
                 min={0}
                 allowZero={true}
-                ariaLabel="Gramatura składnika"
+                ariaLabel={t('ai-ingredient-grams-aria')}
                 onChange={(val) =>
                   onUpdate((ing) => ({ ...ing, amountGrams: val }))
                 }
@@ -1810,7 +1854,7 @@ function CompactIngredientRow({
             </div>
           </div>
 
-          {/* Akcje kontekstowe */}
+          {/* Contextual actions */}
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -1821,7 +1865,11 @@ function CompactIngredientRow({
               className="flex items-center gap-1 rounded-xl bg-secondary px-2.5 py-1.5 text-xs font-semibold"
             >
               <Search className="size-3" />
-              <span>{ingredient.mode === 'db' ? 'Zmień z bazy' : 'Wybierz z bazy'}</span>
+              <span>
+                {ingredient.mode === 'db'
+                  ? t('ai-change-from-db')
+                  : t('ai-pick-from-db')}
+              </span>
             </button>
 
             <button
@@ -1835,7 +1883,7 @@ function CompactIngredientRow({
               ) : (
                 <Sparkles className="size-3" />
               )}
-              <span>Przelicz nazwę z AI</span>
+              <span>{t('ai-recalc-variant')}</span>
             </button>
 
             <button
@@ -1849,7 +1897,7 @@ function CompactIngredientRow({
               ) : (
                 <Camera className="size-3" />
               )}
-              <span>Skanuj etykietę</span>
+              <span>{t('ai-scan-label')}</span>
             </button>
           </div>
 
@@ -1863,7 +1911,7 @@ function CompactIngredientRow({
             className="hidden"
           />
 
-          {/* Zapis do bazy + Edytuj 100g (gdy nie jest wybrany z bazy) */}
+          {/* Save to DB + Edit 100g (when not matched to an existing DB item) */}
           {ingredient.mode !== 'db' && (
             <div className="flex items-center justify-between gap-2 pt-0.5 text-xs">
               <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
@@ -1878,7 +1926,7 @@ function CompactIngredientRow({
                   }
                   className="size-3.5 rounded accent-primary"
                 />
-                <span>Zapisz w bazie Piccolo</span>
+                <span>{t('ai-save-to-db')}</span>
               </label>
 
               <button
@@ -1889,20 +1937,20 @@ function CompactIngredientRow({
                 }}
                 className="font-medium text-muted-foreground underline hover:text-foreground"
               >
-                {edit100gOpen ? 'Ukryj 100g' : 'Edytuj 100g'}
+                {edit100gOpen ? t('ai-hide-100g') : t('ai-edit-100g')}
               </button>
             </div>
           )}
 
-          {/* Edycja wartości odżywczych na 100g */}
+          {/* Per-100g nutrition editor */}
           {edit100gOpen && ingredient.mode !== 'db' && (
             <div className="grid grid-cols-4 gap-1.5 rounded-xl border border-border bg-card p-2">
               {(
                 [
                   ['calories', 'kcal'],
-                  ['protein', 'B (g)'],
-                  ['fat', 'T (g)'],
-                  ['carbs', 'W (g)'],
+                  ['protein', `${t('protein-short')} (g)`],
+                  ['fat', `${t('fat-short')} (g)`],
+                  ['carbs', `${t('carbs-short')} (g)`],
                 ] as const
               ).map(([field, label]) => (
                 <label
@@ -1914,7 +1962,7 @@ function CompactIngredientRow({
                     value={ingredient.nutritionPer100g[field]}
                     min={0}
                     allowZero={true}
-                    ariaLabel={`${label} na 100g`}
+                    ariaLabel={`${label}/100g`}
                     onChange={(val) =>
                       onUpdate((ing) => ({
                         ...ing,
@@ -1931,7 +1979,7 @@ function CompactIngredientRow({
             </div>
           )}
 
-          {/* Picker bazy produktów */}
+          {/* Database product picker */}
           {pickerOpen && (
             <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-2.5">
               <div className="flex gap-1.5">
@@ -1945,7 +1993,7 @@ function CompactIngredientRow({
                       handleManualSearch()
                     }
                   }}
-                  placeholder="Szukaj w bazie..."
+                  placeholder={t('ai-search-db-placeholder')}
                   className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2.5 py-1 text-xs outline-none focus:border-primary"
                 />
                 <button
@@ -1954,14 +2002,14 @@ function CompactIngredientRow({
                   disabled={searchingDb}
                   className="rounded-lg bg-secondary px-2.5 py-1 text-xs font-semibold"
                 >
-                  {searchingDb ? '...' : 'Szukaj'}
+                  {searchingDb ? '...' : t('ai-search-btn')}
                 </button>
               </div>
 
               <div className="flex max-h-36 flex-col gap-1 overflow-y-auto">
                 {ingredient.candidates.length === 0 ? (
                   <p className="py-2 text-center text-xs text-muted-foreground">
-                    Brak dopasowań w bazie
+                    {t('ai-no-db-matches')}
                   </p>
                 ) : (
                   ingredient.candidates.slice(0, 8).map((prod, idx) => {
@@ -2014,7 +2062,7 @@ function CompactIngredientRow({
                 }}
                 className="rounded-lg border border-border py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
-                Użyj szacunku / danych z AI
+                {t('ai-use-ai-estimate')}
               </button>
             </div>
           )}

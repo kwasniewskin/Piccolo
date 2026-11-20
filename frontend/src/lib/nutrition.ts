@@ -1,7 +1,7 @@
 import type { DiaryEntry, DiaryEntryView, Macros, MealType, Product } from './types'
-import { getMealLabel, getUnitLabel, type Language } from './i18n'
+import { getLocale, getMealLabel, getUnitLabel, type Language } from './i18n'
 
-/** Pory posiłków w kolejności wyświetlania (z obsługą i18n). */
+/** Meal slots in display order (localized). */
 export function getMeals(lang: Language): { id: MealType; label: string }[] {
   const mealIds: MealType[] = ['breakfast', 'second-breakfast', 'lunch', 'snack', 'dinner']
   return mealIds.map(id => ({
@@ -10,7 +10,7 @@ export function getMeals(lang: Language): { id: MealType; label: string }[] {
   }))
 }
 
-/** Domyślna lista posiłków (dla kompatybilności wstecznej, angielski). */
+/** Default meal list (kept for backwards compatibility, English). */
 export const MEALS: { id: MealType; label: string }[] = [
   { id: 'breakfast', label: 'Breakfast' },
   { id: 'second-breakfast', label: 'Second breakfast' },
@@ -20,9 +20,8 @@ export const MEALS: { id: MealType; label: string }[] = [
 ]
 
 /**
- * Domyślne dzienne cele (użytkownik może je zmienić w ustawieniach).
- * Makro sumuje się do 2090 kcal, czyli mieści się w limicie 2100 kcal.
- * TODO(backend): docelowo ustawienia użytkownika.
+ * Default daily targets (customizable in user settings).
+ * Macros sum to 2090 kcal, staying within the 2100 kcal limit.
  */
 export const GOALS: Macros & { water: number } = {
   kcal: 2100,
@@ -32,27 +31,27 @@ export const GOALS: Macros & { water: number } = {
   water: 2000,
 }
 
-/** Kaloryczność 1 g makroskładnika (współczynniki Atwatera). */
+/** Caloric energy per gram of each macronutrient (Atwater factors). */
 export const KCAL_PER_GRAM = { protein: 4, carbs: 4, fat: 9 } as const
 
-/** Liczy kalorie wynikające z podanej ilości makroskładników (w gramach). */
+/** Computes calories derived from the given macronutrient gram amounts. */
 export function kcalFromMacros(m: Pick<Macros, 'protein' | 'fat' | 'carbs'>) {
   return (
     m.protein * KCAL_PER_GRAM.protein + m.carbs * KCAL_PER_GRAM.carbs + m.fat * KCAL_PER_GRAM.fat
   )
 }
 
-/** Pojemność jednej szklanki wody (ml) – używane przez WaterCard. */
+/** Single glass volume (ml) used by WaterCard. */
 export const GLASS_ML = 250
 
-/** Zaokrąglenie do 1 miejsca po przecinku (dla gramów makro). */
+/** Rounds to 1 decimal place (used for macro grams). */
 export function round1(n: number) {
   return Math.round(n * 10) / 10
 }
 
 /**
- * Przelicza wartości „na 100 g” na konkretną ilość.
- * To ta sama formuła, której użyje backend: wartość * ilość / 100.
+ * Scales per-100g values to a specific gram amount.
+ * Matches the backend calculation formula: value * amount / 100.
  */
 export function macrosFor(product: Product, amountInGrams: number): Macros {
   const factor = amountInGrams / 100
@@ -64,7 +63,7 @@ export function macrosFor(product: Product, amountInGrams: number): Macros {
   }
 }
 
-/** Sumuje makroskładniki z listy (np. wszystkich wpisów danego posiłku). */
+/** Sums macronutrients across a list of entries (e.g. a meal or full day). */
 export function sumMacros(items: Macros[]): Macros {
   return items.reduce<Macros>(
     (acc, m) => ({
@@ -78,42 +77,45 @@ export function sumMacros(items: Macros[]): Macros {
 }
 
 /**
- * Łączy wpis dziennika z produktem i wylicza makro – odpowiednik JOIN-a w SQL.
- * Zwraca `null`, gdy produkt nie istnieje (np. został usunięty).
+ * Joins a diary entry with its product and computes macros (client-side equivalent of SQL JOIN).
+ * Returns `null` if the referenced product is missing.
  */
-export function toEntryView(entry: DiaryEntry, products: Product[]): DiaryEntryView | null {
-  // Szybki wpis (Quick Add) – brak produktu, makro podane bezpośrednio
+export function toEntryView(
+  entry: DiaryEntry,
+  products: Product[],
+  lang: Language = 'pl'
+): DiaryEntryView | null {
+  // Quick Add / custom entry: macros are provided directly without a product reference
   if (entry.productId == null && entry.customName) {
-    const round1 = (n: number) => Math.round(n * 10) / 10
+    const r1 = (n: number) => Math.round(n * 10) / 10
     return {
       ...entry,
       kcal: Math.round(entry.customCalories ?? 0),
-      protein: round1(entry.customProtein ?? 0),
-      fat: round1(entry.customFat ?? 0),
-      carbs: round1(entry.customCarbs ?? 0),
+      protein: r1(entry.customProtein ?? 0),
+      fat: r1(entry.customFat ?? 0),
+      carbs: r1(entry.customCarbs ?? 0),
       productName: entry.customName,
-      unit: '',  // Brak jednostki dla custom entries (to nie są gramy)
+      unit: '', // No unit for custom entries (not weight-based)
     }
   }
   const product = products.find((p) => p.id === entry.productId)
   if (!product) return null
 
-  // Jeśli wpis ma unitKey i unitQuantity, wygeneruj displayLabel
+  // Format localized display label when unitKey and unitQuantity are present
   let displayLabel: string | undefined
   if (entry.unitKey && entry.unitQuantity != null) {
-    // Formatuj ilość (usuwaj zbędne zera po przecinku, np. 1.0 → 1, 0.75 → 0,75)
-    const formattedQty = entry.unitQuantity.toLocaleString('pl-PL', {
+    const formattedQty = entry.unitQuantity.toLocaleString(getLocale(lang), {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })
-    const grams = formatGrams(entry.amountInGrams)
+    const grams = formatGrams(entry.amountInGrams, lang)
     
-    // Dla gramów: "150 g"
+    // For weight/volume base units: e.g. "150 g"
     if (entry.unitKey === 'g' || entry.unitKey === 'ml') {
       displayLabel = grams
     } else {
-      // Dla innych jednostek: "3 × porcja (50 g)"
-      const unitName = getUnitLabel('pl', entry.unitKey)
+      // For custom units: e.g. "3 × portion (50 g)"
+      const unitName = getUnitLabel(lang, entry.unitKey)
       displayLabel = `${formattedQty} × ${unitName} (${grams})`
     }
   }
@@ -127,9 +129,8 @@ export function toEntryView(entry: DiaryEntry, products: Product[]): DiaryEntryV
   }
 }
 
-// --- Daty -------------------------------------------------------------------
-// Używamy kluczy `YYYY-MM-DD` w czasie LOKALNYM. `toISOString()` daje czas UTC,
-// co np. o 0:30 w Polsce zwróciłoby jeszcze wczorajszą datę.
+// --- Dates ------------------------------------------------------------------
+// Uses `YYYY-MM-DD` keys in LOCAL time (`toISOString()` uses UTC and shifts dates near midnight).
 
 export function toDateKey(date: Date) {
   const y = date.getFullYear()
@@ -144,8 +145,8 @@ export function fromDateKey(key: string) {
 }
 
 /**
- * Liczy procent kalorii pochodzących z każdego makroskładnika.
- * Używane w wykresach kołowych (pokazują rozkład źródeł energii, nie wagę).
+ * Computes the percentage of total calories contributed by each macronutrient.
+ * Used for macro breakdown rings (shows energy share rather than gram share).
  */
 export function calcMacroPercentages(product: Product) {
   const totalKcal = product.caloriesPer100g
@@ -158,20 +159,18 @@ export function calcMacroPercentages(product: Product) {
   }
 }
 
-// --- Jednostki (serving units) ------------------------------------------------
+// --- Serving units ----------------------------------------------------------
 
 export type AvailableUnit = { key: string; gramsPerUnit: number }
 
 /**
- * Zwraca listę jednostek dostępnych dla danego produktu.
- * Zawsze: 'g' (i 'ml' gdy produkt jest w ml).
- * Dodatkowo: 'portion' (gdy defaultServingGrams jest), 'package' (gdy packageWeightGrams jest),
- * oraz wszystkie jednostki z product.units.
+ * Returns all serving units available for a product:
+ * always 'g' (and 'ml' for liquids), plus 'portion', 'package', and custom ProductUnits.
  */
 export function getAvailableUnits(product: Product): AvailableUnit[] {
   const units: AvailableUnit[] = [{ key: 'g', gramsPerUnit: 1 }]
 
-  // ml traktujemy 1:1 z gramami (uproszczenie)
+  // Treat ml as 1:1 with grams
   if (product.unit === 'ml') {
     units.push({ key: 'ml', gramsPerUnit: 1 })
   }
@@ -184,7 +183,7 @@ export function getAvailableUnits(product: Product): AvailableUnit[] {
     units.push({ key: 'package', gramsPerUnit: product.packageWeightGrams })
   }
 
-  // Jednostki niestandardowe z tabeli ProductUnits
+  // Custom units from ProductUnits table
   if (product.units) {
     product.units.forEach((u) => {
       units.push({ key: u.unitKey, gramsPerUnit: u.gramsPerUnit })
@@ -195,8 +194,7 @@ export function getAvailableUnits(product: Product): AvailableUnit[] {
 }
 
 /**
- * Przelicza ilość w danej jednostce na gramy.
- * Zwraca 0, gdy jednostka nieznana.
+ * Converts a quantity in the given unit to grams. Returns 0 for unknown units.
  */
 export function gramsFor(product: Product, unitKey: string, quantity: number): number {
   const units = getAvailableUnits(product)
@@ -205,10 +203,9 @@ export function gramsFor(product: Product, unitKey: string, quantity: number): n
 }
 
 /**
- * Buduje 3 wiersze „szybkiego dodawania" (quick rows):
- * Wiersze 1–2: ostatnio używane kombinacje (z historii) lub domyślne (1×porcja, 2×porcja, 100g).
- * Wiersz 3: opakowanie lub 100g (jeśli opakowania brak).
- * Duplikaty są pomijane.
+ * Builds up to 3 quick-add serving rows:
+ * Rows 1-2: recently used combinations (or default 1x/2x portion, or 100g fallback).
+ * Row 3: 1x package or 100g fallback, deduplicated.
  */
 export function buildQuickRows(
   product: Product,
@@ -226,11 +223,11 @@ export function buildQuickRows(
     rows.push({ unitKey, quantity, grams })
   }
 
-  // Wiersze 1–2: ostatnio używane (jeśli są)
+  // Rows 1-2: recently used servings if available
   if (usage && usage.recent.length > 0) {
     usage.recent.slice(0, 2).forEach((r) => addRow(r.unitKey, r.quantity))
   } else {
-    // Fallback: 1 porcja, 2 porcje (jeśli produkt ma porcję), w przeciwnym razie 100g
+    // Fallback: 1 portion, 2 portions (when defined), otherwise 100g
     if (product.defaultServingGrams && product.defaultServingGrams > 0) {
       addRow('portion', 1)
       addRow('portion', 2)
@@ -239,20 +236,19 @@ export function buildQuickRows(
     }
   }
 
-  // Wiersz 3: opakowanie lub 100g
+  // Row 3: package or 100g
   if (product.packageWeightGrams && product.packageWeightGrams > 0) {
     addRow('package', 1)
   } else {
     addRow('g', 100)
   }
 
-  return rows.slice(0, 3) // maksymalnie 3 wiersze
+  return rows.slice(0, 3) // maximum 3 rows
 }
 
 /**
- * Formatuje gramy w formacie pl-PL (przecinek zamiast kropki).
- * Przykład: formatGrams(16.7) => "16,7 g"
+ * Formats gram amounts using the active locale (e.g. "16,7 g" in PL or "16.7 g" in EN).
  */
-export function formatGrams(grams: number): string {
-  return `${grams.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} g`
+export function formatGrams(grams: number, lang: Language = 'pl'): string {
+  return `${grams.toLocaleString(getLocale(lang), { minimumFractionDigits: 0, maximumFractionDigits: 1 })} g`
 }

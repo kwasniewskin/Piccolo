@@ -103,12 +103,12 @@ describe('callVisionJsonModel', () => {
 
     const fetchMock = vi
       .fn()
-      // 4 modele w łańcuchu Gemini zwracają 503
+      // First 4 models in the Gemini chain return 503
       .mockResolvedValueOnce(mockResponse(503, { error: 'busy' }))
       .mockResolvedValueOnce(mockResponse(503, { error: 'busy' }))
       .mockResolvedValueOnce(mockResponse(503, { error: 'busy' }))
       .mockResolvedValueOnce(mockResponse(503, { error: 'busy' }))
-      // 5. strzał trafia do OpenAI
+      // 5th attempt falls back to OpenAI
       .mockResolvedValueOnce(
         mockResponse(200, {
           choices: [{ message: { content: '{"provider":"fallback"}' } }],

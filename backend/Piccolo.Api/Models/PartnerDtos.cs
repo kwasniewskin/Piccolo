@@ -1,7 +1,7 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// DTO zwracający wygenerowany kod parowania.
+/// Response DTO returning a generated pairing code.
 /// </summary>
 public class GeneratePairingCodeResponse
 {
@@ -10,7 +10,7 @@ public class GeneratePairingCodeResponse
 }
 
 /// <summary>
-/// DTO przyjmujący kod parowania do akceptacji.
+/// Request DTO for accepting a pairing code.
 /// </summary>
 public class AcceptPairingCodeRequest
 {
@@ -18,7 +18,7 @@ public class AcceptPairingCodeRequest
 }
 
 /// <summary>
-/// DTO zwracający informacje o połączeniu.
+/// Response DTO describing a partner connection.
 /// </summary>
 public class ConnectionDto
 {
@@ -31,7 +31,7 @@ public class ConnectionDto
 }
 
 /// <summary>
-/// DTO zwracający informacje o partnerze.
+/// Response DTO returning partner profile summary.
 /// </summary>
 public class PartnerInfoDto
 {

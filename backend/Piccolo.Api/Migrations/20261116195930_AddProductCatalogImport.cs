@@ -260,7 +260,7 @@ namespace Piccolo.Api.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.SetNull);
 
-            // Backfill istniejących produktów i wpisów dziennika
+            // Backfill SearchName on existing products and diary entries
             migrationBuilder.Sql(@"
                 UPDATE Products
                 SET SearchName = lower(

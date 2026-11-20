@@ -11,7 +11,7 @@ export function DailySummary({ totals, goals }: Props) {
   const { language } = useLanguage()
   const t = (key: keyof typeof import('@/lib/i18n').TRANSLATIONS.en) => getTranslation(language, key)
   
-  // Defensive checks: upewnij się że goals zawiera sensowne wartości
+  // Defensive check: ensure goals contain valid positive values
   const safeGoals = {
     kcal: goals.kcal || 2100,
     protein: goals.protein || 130,
@@ -23,8 +23,8 @@ export function DailySummary({ totals, goals }: Props) {
   const kcalPct = safeGoals.kcal > 0 ? Math.min(100, (totals.kcal / safeGoals.kcal) * 100) : 0
 
   return (
-    // Przypięty na stałe do dołu ekranu (fixed) – nie scrolluje się z listą posiłków.
-    // `max-w-md mx-auto` trzyma go w tej samej kolumnie co reszta aplikacji.
+    // Fixed at the bottom of the viewport so it remains visible while scrolling meal cards.
+    // `max-w-md mx-auto` keeps it aligned with the main app column.
     <section
       aria-labelledby="summary-heading"
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md rounded-t-3xl border-t bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-card-foreground shadow-[0_-8px_24px_rgb(0_0_0/0.35)]"

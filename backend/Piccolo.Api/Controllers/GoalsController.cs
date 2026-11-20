@@ -8,8 +8,8 @@ using Piccolo.Api.Services;
 namespace Piccolo.Api.Controllers;
 
 /// <summary>
-/// Dzienne cele kaloryczne i makroskładników.
-/// Każdy użytkownik ma własne cele; partner może je odczytać, ale nie zmienić.
+/// Daily calorie and macronutrient goals.
+/// Each user owns their goals; a connected partner can read but not modify them.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -28,8 +28,8 @@ public class GoalsController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera cele właściciela dziennika.
-    /// Domyślnie cele zalogowanego użytkownika; z targetUserId – cele partnera (wymaga aktywnego połączenia).
+    /// Fetches nutrition goals for the diary owner.
+    /// Defaults to the authenticated user; with targetUserId fetches the partner's goals (requires active connection).
     /// GET /api/goals?targetUserId=2
     /// </summary>
     [HttpGet]
@@ -57,7 +57,7 @@ public class GoalsController : ControllerBase
     }
 
     /// <summary>
-    /// Zapisuje cele zalogowanego użytkownika.
+    /// Updates goals for the authenticated user.
     /// PUT /api/goals
     /// </summary>
     [HttpPut]

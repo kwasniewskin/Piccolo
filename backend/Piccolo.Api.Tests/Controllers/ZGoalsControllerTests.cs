@@ -9,9 +9,8 @@ using Xunit;
 namespace Piccolo.Api.Tests.Controllers;
 
 /// <summary>
-/// Testy celów kalorycznych – każdy użytkownik ma własne cele,
-/// a partner widzi cele właściciela oglądanego dziennika.
-/// Każdy test kończy bez aktywnego połączenia (baza współdzielona przez IClassFixture).
+/// Calorie and macro goal tests: each user owns their goals, and a connected partner
+/// reads the viewed diary owner's goals. Tests share an in-memory DB and disconnect on completion.
 /// </summary>
 [Collection("Sequential")]
 public class ZGoalsControllerTests : IClassFixture<CustomWebApplicationFactory>
@@ -28,7 +27,7 @@ public class ZGoalsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
     private async Task<int> GetCurrentUserIdAsync()
     {
-        // Najprostszy sposób: utworzyć wpis, odczytać UserId, usunąć wpis i ponownie sprawdzić, czy nie ma wycieków.
+        // Easiest way to resolve the numeric user ID: insert a probe entry, read UserId, then delete it.
         var entry = DiaryEntryTestHelper.CreateCustomEntryDto("Temp probe", 1, 0, 0, 0, "2099-12-31", MealType.Snack);
         var response = await _client.PostAsJsonAsync("/api/diary", entry, _jsonOptions);
         var created = await response.Content.ReadFromJsonAsync<DiaryEntry>(_jsonOptions);
@@ -90,7 +89,7 @@ public class ZGoalsControllerTests : IClassFixture<CustomWebApplicationFactory>
     {
         await DisconnectAsync();
 
-        // Resetuj cele obu użytkowników do domyślnych przed testem
+        // Reset both users' goals to defaults before test
         TestAuthHandler.SwitchToUser1();
         await PutGoalsAsync(2100, 150, 70, 250);
         var user1Id = await GetCurrentUserIdAsync();
@@ -99,7 +98,7 @@ public class ZGoalsControllerTests : IClassFixture<CustomWebApplicationFactory>
         await PutGoalsAsync(2100, 150, 70, 250);
         var user2Id = await GetCurrentUserIdAsync();
 
-        // Teraz każdy ustawia różne cele
+        // Set distinct goals per user
         TestAuthHandler.SwitchToUser1();
         await PutGoalsAsync(2100, 130, 70, 235);
 
@@ -109,16 +108,16 @@ public class ZGoalsControllerTests : IClassFixture<CustomWebApplicationFactory>
         await ConnectUsersAsync();
         try
         {
-            // User1 ogląda dziennik User2 → widzi 900
+            // User1 views User2's diary -> sees 900
             TestAuthHandler.SwitchToUser1();
             var partnerGoals = await _client.GetFromJsonAsync<GoalsDto>($"/api/goals?targetUserId={user2Id}", _jsonOptions);
             partnerGoals!.Kcal.Should().Be(900);
 
-            // Własne cele User1 bez zmian
+            // User1's own goals remain unchanged
             var ownGoals = await _client.GetFromJsonAsync<GoalsDto>("/api/goals", _jsonOptions);
             ownGoals!.Kcal.Should().Be(2100);
 
-            // User2 ogląda dziennik User1 → widzi 2100
+            // User2 views User1's diary -> sees 2100
             TestAuthHandler.SwitchToUser2();
             var user1Goals = await _client.GetFromJsonAsync<GoalsDto>($"/api/goals?targetUserId={user1Id}", _jsonOptions);
             user1Goals!.Kcal.Should().Be(2100);

@@ -1,8 +1,8 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Pora posiłku w dzienniku żywieniowym.
-/// Wartości są konwertowane do kebab-case w JSON (np. SecondBreakfast -> "second-breakfast").
+/// Meal slot in the food diary.
+/// Serialized as kebab-case in JSON (e.g. SecondBreakfast -> "second-breakfast").
 /// </summary>
 public enum MealType
 {

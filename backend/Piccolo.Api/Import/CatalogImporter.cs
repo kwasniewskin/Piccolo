@@ -97,7 +97,7 @@ public static class CatalogImporter
         var fileSha = await ComputeSha256Async(jsonlPath);
         Console.WriteLine($"Plik: {jsonlPath} (SHA256: {fileSha[..12]}...), poprawnych: {items.Count}, odrzuconych: {rejectedLines}");
 
-        // 2. Spójna kopia zapasowa (chyba ze dry-run lub wyraznie pominieto w testach)
+        // 2. Consistent backup before import (unless dry-run or skipped in tests)
         if (!dryRun && !skipBackup && File.Exists(dbPath))
         {
             var backupOk = await CreateAndVerifyBackupAsync(dbPath);
@@ -219,7 +219,7 @@ public static class CatalogImporter
             return 3;
         }
 
-        // 4. Kontrola spójnosci po zapisie
+        // 4. Post-import database integrity check
         if (!await VerifyDatabaseIntegrityAsync(dbPath))
         {
             Console.Error.WriteLine("OSTRZEZENIE: kontrola spojnosci po imporcie zwrocila bledy!");

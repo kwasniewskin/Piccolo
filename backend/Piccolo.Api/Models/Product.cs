@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Produkt spożywczy z wartościami odżywczymi na 100g.
+/// Food product with nutritional values per 100g.
 /// </summary>
 public class Product
 {
@@ -12,7 +12,7 @@ public class Product
     public required string Name { get; set; }
 
     /// <summary>
-    /// Znormalizowana nazwa do wyszukiwania (lowercase, bez diakrytyków).
+    /// Normalized search name (lowercase, stripped of diacritics).
     /// </summary>
     public string SearchName { get; set; } = string.Empty;
     
@@ -26,7 +26,7 @@ public class Product
     
     public string? Barcode { get; set; }
     
-    // Nowe właściwości dla rozszerzonego profilu odżywczego
+    // Extended nutrition profile fields
     public string? Brand { get; set; }
     
     public string? Manufacturer { get; set; }
@@ -54,12 +54,12 @@ public class Product
     public string DataSource { get; set; } = "System";
 
     /// <summary>
-    /// Rodzaj produktu: "generic", "branded", "dish", "user".
+    /// Product kind: "generic", "branded", "dish", or "user".
     /// </summary>
     public string Kind { get; set; } = "user";
 
     /// <summary>
-    /// Stan obróbki: "raw", "cooked", "processed" lub null.
+    /// Preparation state: "raw", "cooked", "processed", or null.
     /// </summary>
     public string? PreparationState { get; set; }
 

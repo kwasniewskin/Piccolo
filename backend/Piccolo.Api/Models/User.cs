@@ -1,51 +1,51 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Użytkownik aplikacji - synchronizowany z Clerk.
+/// Application user synced from Clerk.
 /// </summary>
 public class User
 {
     public int Id { get; set; }
     
     /// <summary>
-    /// Clerk User ID (np. "user_2abc123xyz"). Unikalny identyfikator z Clerk.
+    /// Unique Clerk user identifier (e.g. "user_2abc123xyz").
     /// </summary>
     public required string ClerkUserId { get; set; }
     
     /// <summary>
-    /// Email użytkownika (z Clerk).
+    /// User email address from Clerk.
     /// </summary>
     public required string Email { get; set; }
     
     /// <summary>
-    /// Imię użytkownika (opcjonalne).
+    /// Optional display name.
     /// </summary>
     public string? Name { get; set; }
     
     /// <summary>
-    /// Data utworzenia konta.
+    /// Account creation timestamp (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    // Dzienne cele (domyślne wartości zgodne z GOALS w frontend/src/lib/nutrition.ts)
+    // Daily goals (defaults match GOALS in frontend/src/lib/nutrition.ts)
 
     /// <summary>
-    /// Dzienny cel kaloryczny (kcal).
+    /// Daily calorie goal (kcal).
     /// </summary>
     public double CalorieGoal { get; set; } = 2100;
 
     /// <summary>
-    /// Dzienny cel białka (g).
+    /// Daily protein goal (g).
     /// </summary>
     public double ProteinGoal { get; set; } = 130;
 
     /// <summary>
-    /// Dzienny cel tłuszczu (g).
+    /// Daily fat goal (g).
     /// </summary>
     public double FatGoal { get; set; } = 70;
 
     /// <summary>
-    /// Dzienny cel węglowodanów (g).
+    /// Daily carbohydrates goal (g).
     /// </summary>
     public double CarbsGoal { get; set; } = 235;
     

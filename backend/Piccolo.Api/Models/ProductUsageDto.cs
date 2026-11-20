@@ -1,7 +1,7 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Kombinacja (jednostka, ilość) użyta wcześniej przez użytkownika.
+/// Pair of (unitKey, quantity) previously used by the user.
 /// </summary>
 public class ServingUsageDto
 {
@@ -10,19 +10,18 @@ public class ServingUsageDto
 }
 
 /// <summary>
-/// Historia użycia produktu przez użytkownika – podstawa wierszy "szybkiego dodawania".
+/// Product serving usage history driving quick-serving rows.
 /// GET /api/diary/product-usage/{productId}
 /// </summary>
 public class ProductUsageDto
 {
     /// <summary>
-    /// Do 2 ostatnio użytych, różnych kombinacji (od najnowszej).
+    /// Up to 2 most recently used distinct (unit, quantity) pairs.
     /// </summary>
     public List<ServingUsageDto> Recent { get; set; } = new();
 
     /// <summary>
-    /// Najczęściej używana jednostka wraz z ostatnio wpisaną w niej ilością.
-    /// Null, gdy brak historii.
+    /// Most frequently used unit paired with its most recent quantity, or null if no history exists.
     /// </summary>
     public ServingUsageDto? MostUsed { get; set; }
 }

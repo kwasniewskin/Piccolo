@@ -1,22 +1,22 @@
 namespace Piccolo.Api.Models;
 
 /// <summary>
-/// Status połączenia między użytkownikami (parowanie partnerów).
+/// Connection status between two users (partner sync).
 /// </summary>
 public enum ConnectionStatus
 {
     /// <summary>
-    /// Oczekuje na zaakceptowanie przez drugą stronę.
+    /// Waiting for acceptance by the other user.
     /// </summary>
     Pending = 0,
     
     /// <summary>
-    /// Zaakceptowane - aktywne połączenie.
+    /// Accepted active connection.
     /// </summary>
     Accepted = 1,
     
     /// <summary>
-    /// Rozłączone przez jedną ze stron.
+    /// Disconnected by either user.
     /// </summary>
     Disconnected = 2
 }

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { API_BASE } from '@/lib/api';
+import { getTranslation } from '@/lib/i18n';
+import { useOptionalLanguage } from '@/lib/language-context';
 
 interface ProductFormProps {
   barcode?: string;
@@ -49,6 +51,8 @@ function ProductFormContent({
   onSave,
   onCancel,
 }: ProductFormProps) {
+  const { language } = useOptionalLanguage();
+  const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(language, key);
   const router = useRouter();
   const searchParams = useSearchParams();
   const barcodeFromUrl = searchParams?.get('barcode') || '';
@@ -78,7 +82,7 @@ function ProductFormContent({
   const [existingProductId, setExistingProductId] = useState<number | string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sprawdź duplikat po załadowaniu komponentu, jeśli jest kod kreskowy z URL
+  // Check for existing barcode when opened with barcode URL parameter
   React.useEffect(() => {
     if (finalBarcode) {
       checkBarcodeDuplicate(finalBarcode);
@@ -89,21 +93,21 @@ function ProductFormContent({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
-    // Dla pól tekstowych zapisz wartość bezpośrednio
+    // Store text fields directly
     if (name === 'name' || name === 'barcode' || name === 'manufacturer' || name === 'ingredients') {
       setFormData(prev => ({
         ...prev,
         [name]: value,
       }));
     } else {
-      // Dla pól numerycznych zachowaj pusty string, w przeciwnym razie zapisz wartość
+      // Keep empty string for cleared numeric fields instead of coercing to 0
       setFormData(prev => ({
         ...prev,
         [name]: value === '' ? '' : value,
       }));
     }
 
-    // Sprawdź duplikat gdy pole barcode zostanie zmienione
+    // Check for duplicates whenever the barcode field changes
     if (name === 'barcode' && value.trim()) {
       checkBarcodeDuplicate(value.trim());
     }
@@ -113,14 +117,14 @@ function ProductFormContent({
     if (!barcode) return;
 
     try {
-      const response = await fetch(`${API_BASE}/products/barcode/${barcode}`, {
+      const response = await fetch(`${API_BASE}/products/barcode/${encodeURIComponent(barcode)}?lang=${encodeURIComponent(language)}`, {
         credentials: 'include',
       });
 
       if (response.ok) {
         const product = await response.json();
         
-        // Produkt istnieje w bazie - wypełnij formularz (mapuj z backendu do frontu)
+        // Product already exists in DB - prefill the form from backend fields
         setExistingProductId(product.id);
         setFormData({
           barcode: product.barcode || '',
@@ -139,12 +143,12 @@ function ProductFormContent({
           ingredients: product.ingredients || '',
         });
       } else if (response.status === 404) {
-        // Produkt nie istnieje - to jest nowy produkt
+        // Product does not exist yet - create new entry
         setExistingProductId(null);
       }
     } catch (error) {
       console.error('Error checking barcode duplicate:', error);
-      // Ignoruj błędy sprawdzania - pozwól użytkownikowi kontynuować
+      // Ignore duplicate check failures so manual entry remains unblocked
     }
   };
 
@@ -159,7 +163,7 @@ function ProductFormContent({
     try {
       setIsAnalyzing(true);
 
-      // Konwersja wszystkich plików do base64
+      // Convert all selected images to base64 data URLs
       const fileReadPromises = Array.from(files).map(file => {
         return new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -171,13 +175,13 @@ function ProductFormContent({
 
       const base64Images = await Promise.all(fileReadPromises);
       
-      // Ustaw pierwszy obrazek jako podgląd
+      // Use the first image for preview thumbnail
       if (base64Images.length > 0) {
         setImagePreview(base64Images[0]);
       }
 
       try {
-        // Wysłanie wszystkich obrazów do API
+        // Send all images to label analysis API
         const response = await fetch('/api/analyze-label', {
           method: 'POST',
           headers: {
@@ -187,20 +191,20 @@ function ProductFormContent({
         });
 
         if (!response.ok) {
-          throw new Error('Błąd podczas analizy obrazu');
+          throw new Error('Image analysis failed');
         }
 
         const productData = await response.json();
 
-        // Aktualizacja formularza - nadpisz name, manufacturer i weight tylko jeśli są puste
+        // Update form fields - only fill name, manufacturer, and weight when currently empty
         setFormData(prev => ({
           ...prev,
           name: prev.name || productData.name || '',
           manufacturer: prev.manufacturer || productData.manufacturer || '',
           barcode: !prev.barcode || prev.barcode.trim() === '' ? (productData.barcode || '') : prev.barcode,
           packageWeight: prev.packageWeight || productData.weight || '',
-          // Makroskładniki i składniki zawsze nadpisz
-          // Używamy ?? zamiast || aby 0 było akceptowane jako prawidłowa wartość
+          // Always populate macronutrients and ingredients from label OCR;
+          // use ?? so valid zero values are preserved
           calories: productData.calories ?? '',
           protein: productData.protein ?? '',
           fat: productData.fat ?? '',
@@ -212,21 +216,21 @@ function ProductFormContent({
           ingredients: productData.ingredients || '',
         }));
 
-        // Sprawdź czy kod kreskowy istnieje w bazie
+        // Check if detected barcode already exists in database
         if (productData.barcode) {
           checkBarcodeDuplicate(productData.barcode);
         }
 
-        console.log('Analiza zakończona pomyślnie:', productData);
+        console.log('Label analysis succeeded:', productData);
       } catch (error) {
-        console.error('Błąd analizy obrazu:', error);
-        toast.error('Nie udało się przeanalizować zdjęć. Spróbuj ponownie.');
+        console.error('Image analysis error:', error);
+        toast.error(t('pf-analyze-error'));
       } finally {
         setIsAnalyzing(false);
       }
     } catch (error) {
-      console.error('Błąd przetwarzania pliku:', error);
-      toast.error('Wystąpił błąd podczas przetwarzania pliku.');
+      console.error('File processing error:', error);
+      toast.error(t('pf-file-error'));
       setIsAnalyzing(false);
     }
   };
@@ -234,20 +238,20 @@ function ProductFormContent({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Walidacja podstawowa
+    // Basic validation
     if (!formData.name || formData.name.trim() === '') {
-      toast.error('Proszę podać nazwę produktu');
+      toast.error(t('pf-name-required'));
       return;
     }
 
     setIsSaving(true);
 
     try {
-      // Mapowanie danych formularza do formatu API backendu
+      // Map form values to backend Product payload
       const productPayload = {
         name: formData.name,
         barcode: formData.barcode || null,
-        brand: null, // Brand może być null, nie jest w formularzu
+        brand: null, // Brand field is optional and omitted from this form
         manufacturer: formData.manufacturer || null,
         ingredients: formData.ingredients || null,
         caloriesPer100g: Number(formData.calories),
@@ -268,7 +272,7 @@ function ProductFormContent({
       let response;
       
       if (existingProductId) {
-        // Aktualizacja istniejącego produktu (PUT)
+        // Update existing product (PUT)
         response = await fetch(`${API_BASE}/products/${existingProductId}`, {
           method: 'PUT',
           headers: {
@@ -278,7 +282,7 @@ function ProductFormContent({
           body: JSON.stringify(productPayload),
         });
       } else {
-        // Dodawanie nowego produktu (POST)
+        // Create new product (POST)
         response = await fetch(`${API_BASE}/products`, {
           method: 'POST',
           headers: {
@@ -291,20 +295,20 @@ function ProductFormContent({
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Błąd podczas zapisywania produktu:', errorText);
-        throw new Error('Nie udało się zapisać produktu');
+        console.error('Error saving product:', errorText);
+        throw new Error('Failed to save product');
       }
 
       const savedProduct = await response.json();
-      console.log('Produkt zapisany pomyślnie:', savedProduct);
+      console.log('Product saved successfully:', savedProduct);
 
-      // Wywołaj callback onSave jeśli istnieje
+      // Invoke onSave callback if provided
       onSave?.(formData);
 
-      // Wyświetl komunikat sukcesu
-      toast.success(existingProductId ? 'Zaktualizowano produkt!' : 'Dodano produkt!');
+      // Display success toast
+      toast.success(existingProductId ? t('pf-updated-toast') : t('pf-created-toast'));
 
-      // Zresetuj formularz do stanu początkowego
+      // Reset form to initial state
       setFormData({
         barcode: '',
         name: '',
@@ -323,27 +327,27 @@ function ProductFormContent({
         units: [],
       });
 
-      // Wyczyść podgląd obrazu i istniejący produkt
+      // Clear image preview and duplicate reference
       setImagePreview(null);
       setExistingProductId(null);
 
-      // Pobierz parametry przekierowania z URL
+      // Read redirect query parameters from URL
       const returnUrl = searchParams?.get('returnUrl');
       const meal = searchParams?.get('meal');
       const date = searchParams?.get('date');
 
-      // Przekieruj z powrotem do strony głównej z ID nowo dodanego produktu
+      // Redirect back to home page with the newly created product preselected
       if (meal && date) {
-        // Użyj returnUrl jeśli jest podany i jest to root, w przeciwnym razie użyj '/'
+        // Use returnUrl when pointing to root; otherwise fall back to '/'
         const targetUrl = returnUrl === '/' ? returnUrl : '/';
         router.push(`${targetUrl}?meal=${meal}&date=${date}&preselectProductId=${savedProduct.id}`);
       } else if (onCancel) {
-        // Jeśli nie ma meal/date, użyj callbacka onCancel
+        // If meal/date context is absent, invoke onCancel callback
         onCancel();
       }
     } catch (error) {
-      console.error('Błąd podczas zapisywania:', error);
-      toast.error('Wystąpił błąd podczas zapisywania produktu. Spróbuj ponownie.');
+      console.error('Error saving product:', error);
+      toast.error(t('pf-save-error'));
     } finally {
       setIsSaving(false);
     }
@@ -356,19 +360,19 @@ function ProductFormContent({
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
       <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
-        {/* Baner informacyjny o istniejącym produkcie */}
+        {/* Existing product notice banner */}
         {existingProductId && (
           <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
             <span className="mr-2">ℹ️</span>
-            Ten produkt znajduje się już w bazie danych! Wczytaliśmy jego dane. Możesz je przejrzeć, poprawić i zapisać zmiany.
+            {t('pf-existing-banner')}
           </div>
         )}
 
         <h2 className="text-3xl font-bold text-foreground">
-          {finalBarcode ? 'Edytuj produkt' : 'Dodaj nowy produkt'}
+          {finalBarcode ? t('pf-edit-title') : t('pf-add-title')}
         </h2>
 
-        {/* Przycisk AI z ikoną aparatu */}
+        {/* AI label scan CTA with camera icon */}
         <div>
           <button
             type="button"
@@ -398,16 +402,16 @@ function ProductFormContent({
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                <span className="text-base">Analizowanie tabeli...</span>
+                <span className="text-base">{t('pf-analyzing')}</span>
               </>
             ) : (
-              <span className="text-base flex items-center"><Camera className="w-5 h-5 mr-2 inline" /> Uzupełnij ze zdjęcia</span>
+              <span className="text-base flex items-center"><Camera className="w-5 h-5 mr-2 inline" /> {t('pf-fill-from-photo')}</span>
             )}
           </button>
           
-          {/* Tekst pomocniczy */}
+          {/* Photo capture helper text */}
           <p className="text-left text-sm mt-2 text-muted-foreground px-1 block">
-            Zrób zdjęcie etykiety z nazwą, tabelą wartości odżywczych i składem. Im więcej informacji na zdjęciach, tym mniej wpisujesz ręcznie.
+            {t('pf-photo-help')}
           </p>
           
           <input
@@ -420,13 +424,13 @@ function ProductFormContent({
             className="hidden"
           />
 
-          {/* Podgląd zdjęcia */}
+          {/* Photo preview */}
           {imagePreview && (
             <div className="mt-4 flex justify-center">
               <div className="relative">
                 <img 
                   src={imagePreview} 
-                  alt="Podgląd zdjęcia" 
+                  alt="Label preview" 
                   className="h-32 w-32 rounded-2xl border-2 border-primary object-cover shadow-md"
                 />
                 <button
@@ -441,10 +445,10 @@ function ProductFormContent({
           )}
         </div>
 
-        {/* Pole Barcode */}
+        {/* Barcode field */}
         <div>
           <label htmlFor="barcode" className="mb-2 block text-sm font-medium text-muted-foreground">
-            Kod kreskowy
+            {t('pf-barcode')}
           </label>
           <input
             type="text"
@@ -454,14 +458,14 @@ function ProductFormContent({
             onChange={handleInputChange}
             disabled={!!finalBarcode}
             className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-            placeholder="np. 5900512123456"
+            placeholder="e.g. 5900512123456"
           />
         </div>
 
-        {/* Nazwa produktu */}
+        {/* Product name */}
         <div>
           <label htmlFor="name" className="mb-2 block text-sm font-medium text-muted-foreground">
-            Nazwa produktu <span className="text-destructive">*</span>
+            {t('pf-name')} <span className="text-destructive">*</span>
           </label>
           <input
             type="text"
@@ -470,15 +474,15 @@ function ProductFormContent({
             value={formData.name}
             onChange={handleInputChange}
             required
-            placeholder="np. Mleko UHT 2%"
+            placeholder="e.g. Milk UHT 2%"
             className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
-        {/* Producent */}
+        {/* Manufacturer */}
         <div>
           <label htmlFor="manufacturer" className="mb-2 block text-sm font-medium text-muted-foreground">
-            Producent
+            {t('pf-manufacturer')}
           </label>
           <input
             type="text"
@@ -486,22 +490,22 @@ function ProductFormContent({
             name="manufacturer"
             value={formData.manufacturer || ''}
             onChange={handleInputChange}
-            placeholder="np. Danone"
+            placeholder="e.g. Danone"
             className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
 
-        {/* Wartości odżywcze - nagłówek */}
+        {/* Nutrition facts heading */}
         <div className="pt-4">
           <h3 className="mb-4 text-xl font-semibold text-foreground">
-            Wartości odżywcze (na 100g)
+            {t('pf-nutrition-heading')}
           </h3>
           
           <div className="space-y-4">
-            {/* Kalorie */}
+            {/* Calories */}
             <div>
               <label htmlFor="calories" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Kalorie (kcal) <span className="text-destructive">*</span>
+                {t('pf-calories')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -517,10 +521,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Białko */}
+            {/* Protein */}
             <div>
               <label htmlFor="protein" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Białko (g) <span className="text-destructive">*</span>
+                {t('pf-protein')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -536,10 +540,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Tłuszcze */}
+            {/* Fat */}
             <div>
               <label htmlFor="fat" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Tłuszcze (g) <span className="text-destructive">*</span>
+                {t('pf-fat')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -555,10 +559,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Tłuszcze nasycone */}
+            {/* Saturated fat */}
             <div>
               <label htmlFor="saturatedFat" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Tłuszcze nasycone (g)
+                {t('pf-saturated-fat')}
               </label>
               <input
                 type="number"
@@ -573,10 +577,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Węglowodany */}
+            {/* Carbohydrates */}
             <div>
               <label htmlFor="carbs" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Węglowodany (g) <span className="text-destructive">*</span>
+                {t('pf-carbs')} <span className="text-destructive">*</span>
               </label>
               <input
                 type="number"
@@ -592,10 +596,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Cukry */}
+            {/* Sugars */}
             <div>
               <label htmlFor="sugars" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Węglowodany w tym cukry (g)
+                {t('pf-sugars')}
               </label>
               <input
                 type="number"
@@ -610,10 +614,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Błonnik */}
+            {/* Fiber */}
             <div>
               <label htmlFor="fiber" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Błonnik (g)
+                {t('pf-fiber')}
               </label>
               <input
                 type="number"
@@ -628,10 +632,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Sól */}
+            {/* Salt */}
             <div>
               <label htmlFor="salt" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Sól (g)
+                {t('pf-salt')}
               </label>
               <input
                 type="number"
@@ -646,10 +650,10 @@ function ProductFormContent({
               />
             </div>
 
-            {/* Składniki */}
+            {/* Ingredients */}
             <div className="col-span-2">
               <label htmlFor="ingredients" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Składniki
+                {t('pf-ingredients')}
               </label>
               <textarea
                 id="ingredients"
@@ -657,24 +661,24 @@ function ProductFormContent({
                 value={formData.ingredients || ''}
                 onChange={handleInputChange}
                 rows={4}
-                placeholder="Składniki produktu..."
+                placeholder={t('pf-ingredients-placeholder')}
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
               />
             </div>
           </div>
         </div>
 
-        {/* Informacje o opakowaniu */}
+        {/* Package details */}
         <div className="pt-4">
           <h3 className="mb-4 text-xl font-semibold text-foreground">
-            Informacje o opakowaniu
+            {t('pf-packaging-heading')}
           </h3>
           
           <div className="space-y-4">
-            {/* Waga opakowania */}
+            {/* Package weight */}
             <div>
               <label htmlFor="packageWeight" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Waga opakowania (g)
+                {t('pf-package-weight')}
               </label>
               <input
                 type="number"
@@ -684,15 +688,15 @@ function ProductFormContent({
                 onChange={handleInputChange}
                 min="0"
                 step="1"
-                placeholder="np. 500"
+                placeholder="e.g. 500"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
-            {/* Domyślna porcja */}
+            {/* Default serving */}
             <div>
               <label htmlFor="defaultServing" className="mb-2 block text-sm font-medium text-muted-foreground">
-                Domyślna porcja (g)
+                {t('pf-default-serving')}
               </label>
               <input
                 type="number"
@@ -702,20 +706,20 @@ function ProductFormContent({
                 onChange={handleInputChange}
                 min="0"
                 step="1"
-                placeholder="np. 100"
+                placeholder="e.g. 100"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
           </div>
         </div>
 
-        {/* Jednostki miary */}
+        {/* Serving units */}
         <div className="pt-4">
           <h3 className="mb-4 text-xl font-semibold text-foreground">
-            Jednostki miary
+            {t('pf-units-heading')}
           </h3>
           <p className="mb-3 text-sm text-muted-foreground">
-            Określ dodatkowe jednostki dla tego produktu (np. plaster, sztuka, łyżka).
+            {t('pf-units-help')}
           </p>
           
           <div className="space-y-3">
@@ -729,7 +733,7 @@ function ProductFormContent({
                     newUnits[index].unitKey = e.target.value
                     setFormData({ ...formData, units: newUnits })
                   }}
-                  placeholder="Nazwa jednostki (np. plaster)"
+                  placeholder={t('pf-unit-placeholder')}
                   className="flex-1 rounded-2xl border border-border bg-card px-4 py-2 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
                 <span className="text-muted-foreground">=</span>
@@ -754,7 +758,7 @@ function ProductFormContent({
                     setFormData({ ...formData, units: newUnits })
                   }}
                   className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  aria-label="Usuń jednostkę"
+                  aria-label={t('remove')}
                 >
                   ×
                 </button>
@@ -769,26 +773,26 @@ function ProductFormContent({
               }}
               className="w-full rounded-2xl border border-dashed border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
             >
-              + Dodaj jednostkę
+              {t('pf-add-unit')}
             </button>
           </div>
         </div>
 
-        {/* Przyciski akcji */}
+        {/* Action buttons */}
         <div className="flex gap-3 pt-6 pb-8">
           <button
             type="button"
             onClick={handleCancel}
             className="flex-1 rounded-2xl bg-secondary px-6 py-3 font-semibold text-secondary-foreground transition-transform active:scale-95"
           >
-            Anuluj
+            {t('cancel')}
           </button>
           <button
             type="submit"
             disabled={isSaving}
             className="flex-1 rounded-2xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSaving ? 'Zapisywanie...' : 'Zapisz'}
+            {isSaving ? t('pf-saving') : t('pf-save')}
           </button>
         </div>
       </form>
@@ -797,10 +801,11 @@ function ProductFormContent({
 }
 
 const ProductForm: React.FC<ProductFormProps> = (props) => {
+  const { language } = useOptionalLanguage();
   return (
     <Suspense fallback={
       <div className="min-h-screen w-full bg-background px-4 py-6 flex items-center justify-center">
-        <div className="text-muted-foreground">Ładowanie...</div>
+        <div className="text-muted-foreground">{getTranslation(language, 'loading')}</div>
       </div>
     }>
       <ProductFormContent {...props} />

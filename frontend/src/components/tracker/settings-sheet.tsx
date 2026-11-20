@@ -8,7 +8,7 @@ import type { Macros } from '@/lib/types'
 
 type Props = {
   open: boolean
-  /** Aktualne cele – wczytywane do formularza przy każdym otwarciu. */
+  /** Current goals - loaded into the form each time the dialog opens. */
   goals: Macros
   onClose: () => void
   onSave: (goals: Macros) => void
@@ -33,7 +33,7 @@ function toForm(goals: Macros): FormValues {
   }
 }
 
-/** Zwraca liczbę albo `null`, gdy pole jest puste / niepoprawne / poza zakresem. */
+/** Returns the parsed number or `null` when empty, invalid, or out of range. */
 function parseField(raw: string, max: number): number | null {
   if (raw.trim() === '') return null
   const n = Number(raw)
@@ -48,15 +48,15 @@ export function SettingsSheet({ open, goals, onClose, onSave }: Props) {
     const dialog = dialogRef.current
     if (!dialog) return
     if (open && !dialog.open) {
-      setValues(toForm(goals)) // świeże wartości przy każdym otwarciu
+      setValues(toForm(goals)) // fresh values each time the dialog opens
       dialog.showModal()
     } else if (!open && dialog.open) {
       dialog.close()
     }
-    // `goals` celowo pomijamy – nie nadpisujemy wpisywanych danych w trakcie edycji
+    // `goals` intentionally omitted - avoid overwriting in-progress edits
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Walidacja -------------------------------------------------------------
+  // --- Validation -------------------------------------------------------------
   const parsed = Object.fromEntries(
     FIELDS.map((f) => [f.key, parseField(values[f.key], f.max)]),
   ) as Record<FieldKey, number | null>
@@ -70,7 +70,7 @@ export function SettingsSheet({ open, goals, onClose, onSave }: Props) {
     }),
   )
   const kcalLimit = parsed.kcal ?? 0
-  // Reguła: kcal z makro (P×4 + C×4 + F×9) nie może przekroczyć limitu kalorii
+  // Rule: kcal from macros (P*4 + C*4 + F*9) cannot exceed the calorie target
   const exceedsLimit = parsed.kcal !== null && macroKcal > kcalLimit
   const canSave = invalidFields.length === 0 && !exceedsLimit && kcalLimit > 0
 
@@ -83,7 +83,7 @@ export function SettingsSheet({ open, goals, onClose, onSave }: Props) {
       fat: parsed.fat!,
       carbs: parsed.carbs!,
     })
-    // Rodzic ustawia open=false → efekt zamyka dialog
+    // Parent sets open=false -> effect closes dialog
   }
 
   return (
