@@ -521,11 +521,20 @@ export function getCachedProducts(): Product[] {
  */
 export async function createProduct(productData: {
   name: string
-  brand?: string
+  brand?: string | null
+  manufacturer?: string | null
+  barcode?: string | null
+  ingredients?: string | null
   caloriesPer100g: number
   proteinPer100g: number
   fatPer100g: number
   carbsPer100g: number
+  saturatedFatPer100g?: number
+  sugarsPer100g?: number
+  fiberPer100g?: number
+  saltPer100g?: number
+  packageWeightGrams?: number
+  defaultServingGrams?: number
   unit?: string
   defaultServing?: number
   dataSource?: string
