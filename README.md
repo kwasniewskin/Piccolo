@@ -8,7 +8,7 @@
 
 > **Mobile-first calorie and macro diary** featuring a multimodal AI meal assistant, real-time 1:1 partner sync, barcode scanning with Open Food Facts fallback, and a multi-source nutrition catalog.
 
-Built as a full-stack personal nutrition platform combining a **Next.js 16 + TypeScript** PWA frontend with an **ASP.NET Core 10 + EF Core (SQLite)** REST API, secured by **Clerk JWT** authentication and backed by **68 automated integration and UI tests**.
+Built as a full-stack personal nutrition platform combining a **Next.js 16 + TypeScript** PWA frontend with an **ASP.NET Core 10 + EF Core (SQLite)** REST API, secured by **Clerk JWT** authentication and backed by **69 automated integration and UI tests**.
 
 ---
 
@@ -74,7 +74,7 @@ flowchart LR
    * *Tradeoff:* Keeps search latency predictable even on SQLite while surfacing relevant local foods immediately without external network dependency.
 4. **Isolated Full-Stack Test Harness ([CustomWebApplicationFactory.cs](backend/Piccolo.Api.Tests/Helpers/CustomWebApplicationFactory.cs))**
    * *Decision:* Replace file-backed SQLite, Clerk JWKS validation, and live Open Food Facts HTTP calls with an in-memory SQLite connection, `TestAuthHandler`, and `MockOpenFoodFactsService` in xUnit, and mock `fetch`/Clerk in Vitest.
-   * *Tradeoff:* Enables deterministic, zero-secret CI runs across all 68 tests in seconds.
+   * *Tradeoff:* Enables deterministic, zero-secret CI runs across all 69 tests in seconds.
 
 ---
 
@@ -86,7 +86,7 @@ flowchart LR
 | **Backend** | ASP.NET Core 10, Entity Framework Core 10, SQLite, JWT Bearer Authentication |
 | **Auth & AI** | Clerk (`@clerk/nextjs` + JWKS verification), Google Gemini Vision API, OpenAI Vision API |
 | **Data & ETL** | Python 3 ETL pipeline (`tools/catalog-etl/`), C# `CatalogImporter` CLI, Open Food Facts API |
-| **Testing & CI** | xUnit + `WebApplicationFactory` (51 tests), Vitest + React Testing Library (17 tests), GitHub Actions |
+| **Testing & CI** | xUnit + `WebApplicationFactory` (51 tests), Vitest + React Testing Library (18 tests), GitHub Actions |
 
 ---
 
@@ -98,7 +98,7 @@ All suites run completely offline with mocked external dependencies:
 # Backend integration tests (51 xUnit tests)
 dotnet test backend/Piccolo.Api.Tests
 
-# Frontend typecheck & unit/component tests (17 Vitest tests across 5 files)
+# Frontend typecheck & unit/component tests (18 Vitest tests across 5 files)
 cd frontend
 npm run typecheck
 npm test

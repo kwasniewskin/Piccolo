@@ -108,11 +108,14 @@ function shiftIsoDate(isoDate: string, days: number): string {
   return `${y}-${m}-${day}`
 }
 
-function formatPortionLabel(portions: number): string {
-  const formatted = portions.toLocaleString('pl-PL', {
+function formatPortionLabel(portions: number, language: Language = 'pl'): string {
+  const formatted = portions.toLocaleString(language === 'en' ? 'en-US' : 'pl-PL', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })
+  if (language === 'en') {
+    return `${formatted} ${portions === 1 ? 'portion' : 'portions'}`
+  }
   if (portions === 1) return `${formatted} porcja`
   if (portions > 1 && portions < 5 && Number.isInteger(portions)) {
     return `${formatted} porcje`
@@ -147,7 +150,7 @@ async function compressImageToDataUrl(file: File): Promise<string> {
     canvas.width = Math.max(1, width)
     canvas.height = Math.max(1, height)
     const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Brak kontekstu Canvas 2D')
+    if (!ctx) throw new Error('Canvas 2D context unavailable')
 
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/jpeg', quality)
@@ -187,6 +190,25 @@ function sortCandidatesLocalFirst(products: Product[]): Product[] {
   const local = products.filter((p) => p.id > 0 && p.dataSource !== 'OFF')
   const off = products.filter((p) => p.id === 0 || p.dataSource === 'OFF')
   return [...local, ...off]
+}
+
+/**
+ * Prevents bogus partial/substring catalog matches (e.g., matching "broccoli" to
+ * 418 kcal vegetable chips or "olive oil" to a 150 kcal salad dressing) from being
+ * auto-selected as the ingredient's database match.
+ */
+function isPlausibleLocalMatch(
+  candidate: Product,
+  ing: AiAnalyzedIngredient
+): boolean {
+  const aiKcal = ing.nutritionPer100g.calories
+  if (aiKcal > 0) {
+    if (candidate.caloriesPer100g <= 0) return false
+    const diff = Math.abs(candidate.caloriesPer100g - aiKcal)
+    const maxAllowedDiff = Math.max(45, aiKcal * 0.45)
+    if (diff > maxAllowedDiff) return false
+  }
+  return true
 }
 
 async function resolveSingleIngredientMatch(
@@ -268,7 +290,11 @@ async function resolveSingleIngredientMatch(
     }
   }
 
-  if (localCandidates.length > 0) {
+  const plausibleLocalMatch = localCandidates.find((p) =>
+    isPlausibleLocalMatch(p, ing)
+  )
+
+  if (plausibleLocalMatch) {
     return {
       localId: makeLocalId('ing'),
       rawName: ing.rawName,
@@ -280,7 +306,7 @@ async function resolveSingleIngredientMatch(
       nutritionPer100g: ing.nutritionPer100g,
       newProductDetails: ing.newProductDetails,
       candidates,
-      selectedProduct: localCandidates[0],
+      selectedProduct: plausibleLocalMatch,
     }
   }
 
@@ -730,7 +756,7 @@ export function AiMealAssistant({
           if (saveMode === 'single_dish') {
             const entryName =
               m.totalPortions !== 1 || alloc.portions !== 1
-                ? `${safeDishName} (${formatPortionLabel(alloc.portions)})`
+                ? `${safeDishName} (${formatPortionLabel(alloc.portions, language)})`
                 : safeDishName
 
             const created = await api.createDiaryEntry(
@@ -1642,7 +1668,10 @@ function CompactIngredientRow({
         await api.searchProducts(nextIng.searchQuery, language)
       )
       const localMatch = dbMatches.find(
-        (p) => p.id > 0 && p.dataSource !== 'OFF'
+        (p) =>
+          p.id > 0 &&
+          p.dataSource !== 'OFF' &&
+          isPlausibleLocalMatch(p, nextIng)
       )
 
       setSearchTerm(nextIng.searchQuery)

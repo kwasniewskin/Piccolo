@@ -100,7 +100,7 @@ async function callOpenAiVisionJson<T>(
   const content = payload.choices?.[0]?.message?.content
 
   if (!content || typeof content !== 'string') {
-    throw new AiProviderError('Brak odpowiedzi z API OpenAI', 500)
+    throw new AiProviderError('Empty response from OpenAI API', 500)
   }
 
   return {
@@ -110,7 +110,8 @@ async function callOpenAiVisionJson<T>(
   }
 }
 
-const RETRYABLE_PROVIDER_STATUSES = new Set([401, 403, 404, 429, 500, 502, 503])
+const RETRYABLE_PROVIDER_STATUSES = new Set([401, 403, 404, 429, 500, 502, 503, 504])
+const GEMINI_REQUEST_TIMEOUT_MS = 15000
 const GEMINI_FALLBACK_MODELS = [
   'gemini-3-flash-preview',
   'gemini-3.8-flash',
@@ -145,27 +146,39 @@ async function callSingleGeminiModel<T>(
     model
   )}:generateContent?key=${encodeURIComponent(apiKey)}`
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: options.systemPrompt }],
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      contents: [
-        {
-          role: 'user',
-          parts,
+      signal:
+        typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+          ? AbortSignal.timeout(GEMINI_REQUEST_TIMEOUT_MS)
+          : undefined,
+      body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: options.systemPrompt }],
         },
-      ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        maxOutputTokens: Math.max(options.maxTokens ?? 4096, 8192),
-      },
-    }),
-  })
+        contents: [
+          {
+            role: 'user',
+            parts,
+          },
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          maxOutputTokens: Math.max(options.maxTokens ?? 4096, 8192),
+        },
+      }),
+    })
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      throw new AiProviderError('AI analysis timed out (Gemini)', 504)
+    }
+    throw err
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
@@ -185,7 +198,7 @@ async function callSingleGeminiModel<T>(
     .trim()
 
   if (!content) {
-    throw new AiProviderError('Brak odpowiedzi z API Gemini', 500)
+    throw new AiProviderError('Empty response from Gemini API', 500)
   }
 
   return {
@@ -215,7 +228,7 @@ async function callGeminiVisionJson<T>(
       lastError = error
       if (
         error instanceof AiProviderError &&
-        [404, 429, 500, 502, 503].includes(error.status)
+        RETRYABLE_PROVIDER_STATUSES.has(error.status)
       ) {
         console.warn(
           `[AI:gemini] Model ${model} returned HTTP ${error.status}, trying next Gemini model...`
@@ -266,7 +279,7 @@ export async function callVisionJsonModel<T>(
   }
 
   if (!openaiKey) {
-    console.error('[AI] Brak klucza OPENAI_API_KEY ani GEMINI_API_KEY')
+    console.error('[AI] Missing both OPENAI_API_KEY and GEMINI_API_KEY')
     throw new AiProviderError('AI server configuration error (missing API key)', 500)
   }
 

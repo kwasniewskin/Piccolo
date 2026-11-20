@@ -385,4 +385,93 @@ describe('AiMealAssistant', () => {
     expect(api.searchProducts).toHaveBeenCalledWith('rolled oats', 'en')
     window.localStorage.removeItem('piccolo-language')
   })
+
+  it('rejects calorie-mismatched local DB hits (e.g. vegetable chips for steamed broccoli) and saves English meal/ingredient names', async () => {
+    window.localStorage.setItem('piccolo-language', 'en')
+
+    const bogusBroccoliChips: Product = {
+      id: 999,
+      name: 'Chipsy vegee carrot beetroot broccoli',
+      caloriesPer100g: 418,
+      proteinPer100g: 6,
+      fatPer100g: 16,
+      carbsPer100g: 60,
+      unit: 'g',
+      defaultServing: 100,
+      dataSource: 'System',
+    }
+
+    vi.mocked(api.searchProducts).mockImplementation(async (query: string) => {
+      if (query.toLowerCase().includes('broccoli')) return [bogusBroccoliChips]
+      return []
+    })
+
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        aiSummary: 'Analyzed grilled chicken with steamed broccoli.',
+        provider: 'gemini',
+        model: 'gemini-3-flash-preview',
+        meals: [
+          {
+            dishName: 'Grilled Chicken & Broccoli',
+            tabLabel: 'Me',
+            totalPortions: 1,
+            ingredients: [
+              {
+                rawName: 'steamed broccoli',
+                searchQuery: 'broccoli',
+                amountGrams: 150,
+                sourceType: 'database_candidate',
+                saveToDatabase: false,
+                nutritionPer100g: { calories: 34, protein: 2.8, fat: 0.4, carbs: 6.6 },
+              },
+            ],
+            allocations: [
+              { target: 'self', date: '2026-11-20', mealType: 'lunch', portions: 1 },
+            ],
+          },
+        ],
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const onComplete = vi.fn()
+    render(
+      <LanguageProvider>
+        <AiMealAssistant
+          meal="lunch"
+          date="2026-11-20"
+          onBack={vi.fn()}
+          onComplete={onComplete}
+          showToast={vi.fn()}
+        />
+      </LanguageProvider>
+    )
+
+    fireEvent.change(screen.getByLabelText('What did you prepare?'), {
+      target: { value: '150g steamed broccoli' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Analyze with AI/i }))
+
+    // Keeps clean English ingredient & realistic 51 kcal instead of 627 kcal vegetable chips
+    await screen.findByRole('button', { name: /steamed broccoli/i })
+    expect(screen.queryByRole('button', { name: /Chipsy vegee/i })).not.toBeInTheDocument()
+    expect(screen.getAllByText('51 kcal').length).toBeGreaterThanOrEqual(2)
+
+    // Confirm and save in single_dish mode -> persists English dishName
+    fireEvent.click(screen.getByRole('button', { name: /Confirm & add to diary/i }))
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1))
+
+    expect(api.createDiaryEntry).toHaveBeenCalledWith(
+      '2026-11-20',
+      'lunch',
+      null,
+      expect.objectContaining({
+        customName: 'Grilled Chicken & Broccoli',
+        customCalories: 51,
+      })
+    )
+    window.localStorage.removeItem('piccolo-language')
+  })
 })
