@@ -816,7 +816,8 @@ export function AiMealAssistant({
   // ---------------------------------------------------------------------------
   if (!draft) {
     return (
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+        <div className="flex min-h-full flex-col gap-4">
         <div className="rounded-2xl bg-primary/10 px-4 py-3 text-sm text-foreground">
           <div className="mb-1 flex items-center gap-1.5 font-semibold text-primary">
             <Sparkles className="size-4" />
@@ -956,6 +957,7 @@ export function AiMealAssistant({
             )}
           </button>
         </div>
+        </div>
       </div>
     )
   }
@@ -986,7 +988,8 @@ export function AiMealAssistant({
       }`
 
   return (
-    <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-6">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
+      <div className="flex flex-col gap-3">
       {/* Zakładki (tylko gdy wykryto >1 osobny talerz / posiłek) */}
       {hasMultipleTabs && (
         <div
@@ -1548,6 +1551,7 @@ export function AiMealAssistant({
             </>
           )}
         </button>
+      </div>
       </div>
     </div>
   )
