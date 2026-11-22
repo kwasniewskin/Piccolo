@@ -1,3 +1,7 @@
+param(
+    [string]$Token = $env:PICCOLO_API_TOKEN
+)
+
 $products = @(
     @{ name = "Rolled oats"; caloriesPer100g = 379; proteinPer100g = 13.2; fatPer100g = 6.5; carbsPer100g = 67.7; brand = $null; saturatedFatPer100g = $null; sugarsPer100g = $null; fiberPer100g = $null; saltPer100g = $null; packageWeightGrams = $null; dataSource = "System"; createdByUserId = $null; imageUrl = $null },
     @{ name = "Banana"; caloriesPer100g = 89; proteinPer100g = 1.1; fatPer100g = 0.3; carbsPer100g = 22.8; brand = $null; saturatedFatPer100g = $null; sugarsPer100g = $null; fiberPer100g = $null; saltPer100g = $null; packageWeightGrams = $null; dataSource = "System"; createdByUserId = $null; imageUrl = $null },
@@ -24,12 +28,17 @@ $products = @(
 
 $baseUrl = "http://localhost:5022/api/products"
 
+$headers = @{}
+if ($Token) {
+    $headers["Authorization"] = "Bearer $Token"
+}
+
 Write-Host "Adding products to database..." -ForegroundColor Green
 
 foreach ($product in $products) {
     $json = $product | ConvertTo-Json
     try {
-        $response = Invoke-RestMethod -Uri $baseUrl -Method Post -Body $json -ContentType "application/json" -UseBasicParsing
+        $response = Invoke-RestMethod -Uri $baseUrl -Method Post -Headers $headers -Body $json -ContentType "application/json" -UseBasicParsing
         Write-Host "Added: $($product.name)" -ForegroundColor Cyan
     } catch {
         Write-Host "Error adding: $($product.name)" -ForegroundColor Red
@@ -38,5 +47,5 @@ foreach ($product in $products) {
 }
 
 Write-Host "`nDone! Checking product count..." -ForegroundColor Green
-$searchResult = Invoke-RestMethod -Uri "$baseUrl/search?name=a" -UseBasicParsing
+$searchResult = Invoke-RestMethod -Uri "$baseUrl/search?name=a" -Headers $headers -UseBasicParsing
 Write-Host "Products in database: $($searchResult.Count)" -ForegroundColor Cyan

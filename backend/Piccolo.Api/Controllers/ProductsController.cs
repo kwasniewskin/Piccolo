@@ -199,7 +199,6 @@ public class ProductsController : ControllerBase
     /// POST /api/products
     /// </summary>
     [HttpPost]
-    [AllowAnonymous] // Products are shared globally; seeding requires unauthenticated access
     public async Task<ActionResult<Product>> Create([FromBody] Product product)
     {
         var unitError = ValidateUnits(product.Units);
@@ -331,7 +330,6 @@ public class ProductsController : ControllerBase
     /// NOTE: Must be declared BEFORE DELETE {id} for route matching.
     /// </summary>
     [HttpDelete("sample-products")]
-    [AllowAnonymous] // Allow cleanup without authentication during local development
     public async Task<ActionResult<object>> DeleteSampleProducts()
     {
         var sampleProducts = await _context.Products
