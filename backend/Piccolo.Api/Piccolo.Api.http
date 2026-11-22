@@ -1,6 +1,7 @@
 @Piccolo.Api_HostAddress = http://localhost:5022
 
-GET {{Piccolo.Api_HostAddress}}/weatherforecast/
+GET {{Piccolo.Api_HostAddress}}/api/products/search?name=milk
 Accept: application/json
+Authorization: Bearer <clerk-jwt-token>
 
 ###

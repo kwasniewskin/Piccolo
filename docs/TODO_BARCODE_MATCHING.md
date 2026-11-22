@@ -69,5 +69,5 @@ The user sees **"From Open Food Facts"** beside **"Matching product in local cat
    - Duplicate barcode guard (`409 Conflict`)
 
 ### Frontend (`frontend/src/`)
-- [api.ts](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/lib/api.ts): add `resolveProductByBarcode(barcode, lang)` and `attachBarcodeToProduct(productId, payload)`.
-- [add-food-sheet.tsx](file:///c:/Users/nikod/Desktop/Piccolo/frontend/src/components/tracker/add-food-sheet.tsx): add side-by-side comparison modal when `source === "off"` and `candidates.length > 0`.
+- [api.ts](../frontend/src/lib/api.ts): add `resolveProductByBarcode(barcode, lang)` and `attachBarcodeToProduct(productId, payload)`.
+- [add-food-sheet.tsx](../frontend/src/components/tracker/add-food-sheet.tsx): add side-by-side comparison modal when `source === "off"` and `candidates.length > 0`.
