@@ -871,13 +871,19 @@ export function AiMealAssistant({
             rows={5}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onFocus={(e) => {
+              const el = e.currentTarget
+              setTimeout(() => {
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+              }, 150)
+            }}
             disabled={analyzing}
             placeholder={
               hasPartner
                 ? t('ai-prompt-placeholder-partner')
                 : t('ai-prompt-placeholder-solo')
             }
-            className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+            className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
           />
         </div>
 

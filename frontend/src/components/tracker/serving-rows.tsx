@@ -82,11 +82,11 @@ export function FixedUnitCalculatorRow({
         />
         <span className="text-base">× {unitLabel}</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5 shrink-0">
         {macros && (
           <>
             <span className="text-sm tabular-nums text-muted-foreground">{formatGrams(grams)}</span>
-            <span className="min-w-[4.5rem] text-right text-sm font-semibold tabular-nums">
+            <span className="min-w-[4.25rem] text-right text-sm font-semibold tabular-nums">
               {macros.kcal} kcal
             </span>
           </>
@@ -95,7 +95,8 @@ export function FixedUnitCalculatorRow({
           type="button"
           onClick={handleAdd}
           disabled={!macros || grams > 5000}
-          className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/80 disabled:opacity-40"
+          aria-label={`Add ${quantity} ${unitLabel}`}
+          className="ml-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/80 disabled:opacity-40"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -130,20 +131,20 @@ export function UnitSelectCalculatorRow({ product, lang, onAdd }: UnitSelectCalc
   }
 
   return (
-    <div className="flex items-center justify-between border-b border-border/40 px-4 py-3.5">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between gap-2 border-b border-border/40 px-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-2">
         <input
           type="text"
           inputMode="decimal"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
-          className="h-11 w-16 rounded-2xl bg-[#4A5B3E] px-3 text-center text-base font-medium tabular-nums text-white placeholder:text-white/60"
+          className="h-11 w-16 shrink-0 rounded-2xl bg-[#4A5B3E] px-3 text-center text-base font-medium tabular-nums text-white placeholder:text-white/60"
           placeholder="1"
         />
         <select
           value={unitKey}
           onChange={(e) => setUnitKey(e.target.value)}
-          className="h-11 rounded-2xl border-none bg-[#4A5B3E] px-3 pr-8 text-base font-medium text-white"
+          className="h-11 min-w-0 max-w-[8.5rem] rounded-2xl border-none bg-[#4A5B3E] px-3 pr-7 text-base font-medium text-white"
         >
           {units.map((u) => (
             <option key={u.key} value={u.key}>
@@ -152,9 +153,9 @@ export function UnitSelectCalculatorRow({ product, lang, onAdd }: UnitSelectCalc
           ))}
         </select>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2.5">
         {macros && (
-          <span className="min-w-[4.5rem] text-right text-sm font-semibold tabular-nums">
+          <span className="min-w-[4.25rem] text-right text-sm font-semibold tabular-nums">
             {macros.kcal} kcal
           </span>
         )}
@@ -162,7 +163,8 @@ export function UnitSelectCalculatorRow({ product, lang, onAdd }: UnitSelectCalc
           type="button"
           onClick={handleAdd}
           disabled={!macros || grams > 5000}
-          className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/80 disabled:opacity-40"
+          aria-label={`Add ${quantity} ${getUnitLabel(lang, unitKey)}`}
+          className="ml-1 flex size-11 shrink-0 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/80 disabled:opacity-40"
         >
           <ChevronRight className="h-5 w-5" />
         </button>

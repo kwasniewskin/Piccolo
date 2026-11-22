@@ -52,7 +52,7 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
             aria-expanded={expanded}
             aria-controls={panelId}
             aria-label={expanded ? `Collapse ${meal.label}` : `Expand ${meal.label}`}
-            className="flex size-6 shrink-0 items-center justify-center"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full"
           >
             <ChevronDown
               aria-hidden="true"
@@ -69,14 +69,14 @@ export function MealCard({ meal, entries, onAdd, onRemove }: Props) {
             type="button"
             onClick={onAdd}
             aria-label={`${t('add-food-to')} ${meal.label}`}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 active:scale-95"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform hover:scale-105 active:scale-95"
           >
-            <Plus className="size-4" strokeWidth={2.5} />
+            <Plus className="size-5" strokeWidth={2.5} />
           </button>
         </div>
 
         {/* Row 2: Calories + Macros (always visible) */}
-        <div className="ml-8 -mt-2 flex items-center gap-3">
+        <div className="ml-11 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-sm font-semibold tabular-nums text-kcal">
             {totals.kcal}
             <span className="ml-0.5 text-xs font-medium text-muted-foreground">{t('kcal')}</span>

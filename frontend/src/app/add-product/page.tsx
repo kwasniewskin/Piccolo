@@ -10,7 +10,7 @@ function AddProductPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  const mealType = searchParams.get('mealType');
+  const meal = searchParams.get('meal') || searchParams.get('mealType');
   const date = searchParams.get('date');
 
   const handleSave = (data: ProductFormData) => {
@@ -19,8 +19,8 @@ function AddProductPageContent() {
 
   const handleCancel = () => {
     // If meal context is present, return to main diary and reopen add sheet
-    if (mealType && date) {
-      router.push(`/?mealType=${mealType}&date=${date}&openAddFood=true`);
+    if (meal && date) {
+      router.push(`/?meal=${encodeURIComponent(meal)}&date=${encodeURIComponent(date)}`);
     } else {
       router.back();
     }

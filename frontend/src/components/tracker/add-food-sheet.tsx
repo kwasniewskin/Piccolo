@@ -43,6 +43,8 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
   const router = useRouter()
   const searchParams = useSearchParams()
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [sheetRect, setSheetRect] = useState<{ top: number; height: number } | null>(null)
   const [query, setQuery] = useState('')
   const [picked, setPicked] = useState<Product | null>(null)
   const [amount, setAmount] = useState('')
@@ -89,9 +91,42 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
   useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (meal && !dialog.open) dialog.showModal()
+    if (meal && !dialog.open) {
+      dialog.showModal()
+      // Only auto-focus search on fine-pointer devices; on mobile it opens the soft keyboard over the bottom action bar.
+      if (typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches) {
+        searchInputRef.current?.focus()
+      }
+    }
     // Parent sets `meal = null` after logging; close dialog and let `onClose` reset state.
     else if (!meal && dialog.open) dialog.close()
+  }, [meal])
+
+  // Position the modal sheet inside the visual viewport so iOS/Android keyboards never cover or push it down.
+  useEffect(() => {
+    if (!meal || typeof window === 'undefined' || !window.visualViewport) {
+      setSheetRect(null)
+      return
+    }
+    const vv = window.visualViewport
+    const update = () => {
+      const vvHeight = Math.round(vv.height)
+      const vvTop = Math.round(vv.offsetTop)
+      const layoutHeight = window.innerHeight || vvHeight
+      const keyboardOpen = vvHeight < layoutHeight * 0.78
+      const targetHeight = keyboardOpen
+        ? Math.max(240, vvHeight - 12)
+        : Math.round(vvHeight * 0.85)
+      const top = vvTop + Math.max(0, vvHeight - targetHeight)
+      setSheetRect({ top, height: targetHeight })
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
   }, [meal])
 
   // Debounced product search + initial catalog load when sheet opens
@@ -255,7 +290,20 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
         if (e.target === e.currentTarget) dialogRef.current?.close()
       }}
       aria-labelledby="add-food-title"
-      className="m-0 mx-auto mt-auto h-[85dvh] max-h-[85dvh] w-full max-w-md rounded-t-3xl bg-background p-0 text-foreground backdrop:bg-foreground/40"
+      style={
+        sheetRect
+          ? {
+              top: `${sheetRect.top}px`,
+              bottom: 'auto',
+              height: `${sheetRect.height}px`,
+              maxHeight: `${sheetRect.height}px`,
+            }
+          : undefined
+      }
+      className={cn(
+        'm-0 mx-auto h-[85dvh] max-h-[85dvh] w-full max-w-md rounded-t-3xl bg-background p-0 text-foreground backdrop:bg-foreground/40',
+        !sheetRect && 'mt-auto',
+      )}
     >
       <div className="flex h-full min-h-0 flex-col">
         <div className="flex shrink-0 items-center gap-2 px-4 pt-3 pb-2">
@@ -263,8 +311,8 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
             <button
               type="button"
               onClick={() => setPicked(null)}
-              aria-label="Back to search"
-              className="flex size-9 items-center justify-center rounded-full hover:bg-secondary"
+              aria-label={t('back')}
+              className="flex size-11 items-center justify-center rounded-full hover:bg-secondary"
             >
               <ArrowLeft className="size-5" />
             </button>
@@ -275,13 +323,13 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                 setIsAiMode(false)
                 setIsQuickAddMode(false)
               }}
-              aria-label="Back to search"
-              className="flex size-9 items-center justify-center rounded-full hover:bg-secondary"
+              aria-label={t('back')}
+              className="flex size-11 items-center justify-center rounded-full hover:bg-secondary"
             >
               <ArrowLeft className="size-5" />
             </button>
           ) : (
-            <span className="size-9" aria-hidden="true" />
+            <span className="size-11" aria-hidden="true" />
           )}
           <div className="flex flex-1 flex-col items-center">
             <span className="mb-1 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
@@ -292,8 +340,8 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
           <button
             type="button"
             onClick={() => dialogRef.current?.close()}
-            aria-label="Close"
-            className="flex size-9 items-center justify-center rounded-full hover:bg-secondary"
+            aria-label={t('close')}
+            className="flex size-11 items-center justify-center rounded-full hover:bg-secondary"
           >
             <X className="size-5" />
           </button>
@@ -309,8 +357,8 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                     <Search className="size-4 text-muted-foreground" aria-hidden="true" />
                     <span className="sr-only">{t('search-placeholder')}</span>
                     <input
+                      ref={searchInputRef}
                       type="search"
-                      autoFocus
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={t('search-placeholder')}
@@ -320,7 +368,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                   <button
                     type="button"
                     onClick={() => setShowScanner(true)}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-secondary px-3 py-3 text-sm font-semibold transition-transform active:scale-95"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-secondary px-3 py-3 text-sm font-semibold transition-transform active:scale-95"
                     aria-label={t('scan-barcode-aria')}
                   >
                     <ScanLine className="size-4" /> {t('scan')}
@@ -480,7 +528,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                 showToast={showToast}
               />
             ) : (
-              <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+              <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
               {searching && (
                 <li className="py-10 text-center text-sm text-muted-foreground">
                   {t('searching')}
@@ -514,20 +562,20 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
             </ul>
             )}
             
-            {/* Sticky footer - visible only in search mode (hidden in Quick Add, AI, and Scanner) */}
+            {/* Bottom footer - visible only in search mode (hidden in Quick Add, AI, and Scanner) */}
             {!isQuickAddMode && !isAiMode && !showScanner && !scannedBarcode && (
-              <div className="sticky bottom-0 bg-background border-t p-4 flex gap-2 z-10">
+              <div className="shrink-0 bg-background border-t px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] flex gap-2 z-10">
                 <button
                   type="button"
                   onClick={() => router.push(`/add-product?returnUrl=/&meal=${meal}&date=${date}`)}
-                  className="flex-1 rounded-full border border-border bg-background py-3 px-2 text-xs sm:text-sm font-semibold transition-transform active:scale-[0.98] hover:bg-secondary"
+                  className="flex-1 min-h-11 rounded-full border border-border bg-background py-3 px-2 text-xs sm:text-sm font-semibold transition-transform active:scale-[0.98] hover:bg-secondary"
                 >
                   {t('new-product')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAiMode(true)}
-                  className="flex-1 flex items-center justify-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-3 px-2 text-xs sm:text-sm font-semibold text-primary transition-transform active:scale-[0.98] hover:bg-primary/20"
+                  className="flex-1 min-h-11 flex items-center justify-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-3 px-2 text-xs sm:text-sm font-semibold text-primary transition-transform active:scale-[0.98] hover:bg-primary/20"
                 >
                   <Sparkles className="size-3.5 shrink-0" />
                   <span>{t('ai-meal')}</span>
@@ -535,7 +583,7 @@ export function AddFoodSheet({ meal, date, onClose, onAdd, onQuickAddComplete, t
                 <button
                   type="button"
                   onClick={() => setIsQuickAddMode(true)}
-                  className="flex-1 rounded-full bg-primary py-3 px-2 text-xs sm:text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
+                  className="flex-1 min-h-11 rounded-full bg-primary py-3 px-2 text-xs sm:text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98]"
                 >
                   {t('quick-add')}
                 </button>

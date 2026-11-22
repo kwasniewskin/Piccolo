@@ -282,9 +282,14 @@ export const TRANSLATIONS = {
     'pf-updated-toast': 'Product updated!',
     'pf-created-toast': 'Product added!',
     'pf-name-required': 'Please enter a product name',
+    'pf-required-nutrition': 'Please enter valid values for calories, protein, fat, and carbohydrates',
+    'pf-remove-photo': 'Remove photo preview',
     'pf-analyze-error': 'Failed to analyze photos. Please try again.',
     'pf-file-error': 'Error processing selected files.',
     'pf-save-error': 'Error saving product. Please try again.',
+    'coming-soon': 'Coming soon',
+    'sign-in': 'Sign In',
+    'sign-up': 'Sign Up',
   },
   pl: {
     // Meals
@@ -567,9 +572,14 @@ export const TRANSLATIONS = {
     'pf-updated-toast': 'Zaktualizowano produkt!',
     'pf-created-toast': 'Dodano produkt!',
     'pf-name-required': 'Proszę podać nazwę produktu',
+    'pf-required-nutrition': 'Uzupełnij prawidłowe wartości dla kalorii, białka, tłuszczów i węglowodanów',
+    'pf-remove-photo': 'Usuń podgląd zdjęcia',
     'pf-analyze-error': 'Nie udało się przeanalizować zdjęć. Spróbuj ponownie.',
     'pf-file-error': 'Wystąpił błąd podczas przetwarzania pliku.',
     'pf-save-error': 'Wystąpił błąd podczas zapisywania produktu. Spróbuj ponownie.',
+    'coming-soon': 'Wkrótce',
+    'sign-in': 'Zaloguj',
+    'sign-up': 'Rejestracja',
   },
 } as const
 

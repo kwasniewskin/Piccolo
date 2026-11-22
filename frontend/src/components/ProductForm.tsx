@@ -4,7 +4,7 @@ import React, { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_BASE } from '@/lib/api';
+import * as api from '@/lib/api';
 import { getTranslation } from '@/lib/i18n';
 import { useOptionalLanguage } from '@/lib/language-context';
 
@@ -117,33 +117,29 @@ function ProductFormContent({
     if (!barcode) return;
 
     try {
-      const response = await fetch(`${API_BASE}/products/barcode/${encodeURIComponent(barcode)}?lang=${encodeURIComponent(language)}`, {
-        credentials: 'include',
-      });
+      const product = await api.getProductByBarcode(barcode, language);
 
-      if (response.ok) {
-        const product = await response.json();
-        
-        // Product already exists in DB - prefill the form from backend fields
-        setExistingProductId(product.id);
+      if (product) {
+        // Only treat locally persisted products (id > 0) as existing DB records for PUT updates
+        setExistingProductId(product.id > 0 ? product.id : null);
         setFormData({
           barcode: product.barcode || '',
           name: product.name || '',
           manufacturer: product.manufacturer || '',
-          calories: product.caloriesPer100g || '',
-          protein: product.proteinPer100g || '',
-          fat: product.fatPer100g || '',
-          saturatedFat: product.saturatedFatPer100g || '',
-          carbs: product.carbsPer100g || '',
-          sugars: product.sugarsPer100g || '',
-          fiber: product.fiberPer100g || '',
-          salt: product.saltPer100g || '',
-          packageWeight: product.packageWeightGrams || '',
-          defaultServing: product.defaultServingGrams || '',
+          calories: product.caloriesPer100g ?? '',
+          protein: product.proteinPer100g ?? '',
+          fat: product.fatPer100g ?? '',
+          saturatedFat: product.saturatedFatPer100g ?? '',
+          carbs: product.carbsPer100g ?? '',
+          sugars: product.sugarsPer100g ?? '',
+          fiber: product.fiberPer100g ?? '',
+          salt: product.saltPer100g ?? '',
+          packageWeight: product.packageWeightGrams ?? '',
+          defaultServing: product.defaultServingGrams ?? '',
           ingredients: product.ingredients || '',
+          units: product.units?.map((u) => ({ unitKey: u.unitKey, gramsPerUnit: u.gramsPerUnit })) || [],
         });
-      } else if (response.status === 404) {
-        // Product does not exist yet - create new entry
+      } else {
         setExistingProductId(null);
       }
     } catch (error) {
@@ -235,12 +231,42 @@ function ProductFormContent({
     }
   };
 
+  const parseRequiredNumber = (val: string | number): number | null => {
+    if (val === '' || val === null || val === undefined) return null;
+    const normalized = typeof val === 'string' ? val.trim().replace(',', '.') : String(val);
+    if (normalized === '') return null;
+    const n = Number(normalized);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
+  const parseOptionalNumber = (val: string | number): number | null => {
+    if (val === '' || val === null || val === undefined) return null;
+    const normalized = typeof val === 'string' ? val.trim().replace(',', '.') : String(val);
+    if (normalized === '') return null;
+    const n = Number(normalized);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Basic validation
+    // Explicit validation so native browser step/required quirks never silently block mobile submit
     if (!formData.name || formData.name.trim() === '') {
       toast.error(t('pf-name-required'));
+      document.getElementById('name')?.focus();
+      return;
+    }
+
+    const calories = parseRequiredNumber(formData.calories);
+    const protein = parseRequiredNumber(formData.protein);
+    const fat = parseRequiredNumber(formData.fat);
+    const carbs = parseRequiredNumber(formData.carbs);
+
+    if (calories === null || protein === null || fat === null || carbs === null) {
+      toast.error(t('pf-required-nutrition'));
+      const firstMissingId =
+        calories === null ? 'calories' : protein === null ? 'protein' : fat === null ? 'fat' : 'carbs';
+      document.getElementById(firstMissingId)?.focus();
       return;
     }
 
@@ -249,57 +275,34 @@ function ProductFormContent({
     try {
       // Map form values to backend Product payload
       const productPayload = {
-        name: formData.name,
-        barcode: formData.barcode || null,
+        name: formData.name.trim(),
+        barcode: formData.barcode?.trim() || null,
         brand: null, // Brand field is optional and omitted from this form
-        manufacturer: formData.manufacturer || null,
-        ingredients: formData.ingredients || null,
-        caloriesPer100g: Number(formData.calories),
-        proteinPer100g: Number(formData.protein),
-        fatPer100g: Number(formData.fat),
-        saturatedFatPer100g: Number(formData.saturatedFat),
-        carbsPer100g: Number(formData.carbs),
-        sugarsPer100g: Number(formData.sugars),
-        fiberPer100g: Number(formData.fiber),
-        saltPer100g: Number(formData.salt),
-        packageWeightGrams: Number(formData.packageWeight),
-        defaultServingGrams: Number(formData.defaultServing),
+        manufacturer: formData.manufacturer?.trim() || null,
+        ingredients: formData.ingredients?.trim() || null,
+        caloriesPer100g: calories,
+        proteinPer100g: protein,
+        fatPer100g: fat,
+        saturatedFatPer100g: parseOptionalNumber(formData.saturatedFat),
+        carbsPer100g: carbs,
+        sugarsPer100g: parseOptionalNumber(formData.sugars),
+        fiberPer100g: parseOptionalNumber(formData.fiber),
+        saltPer100g: parseOptionalNumber(formData.salt),
+        packageWeightGrams: parseOptionalNumber(formData.packageWeight),
+        defaultServingGrams: parseOptionalNumber(formData.defaultServing),
         dataSource: 'User',
         imageUrl: null,
         units: formData.units?.filter(u => u.unitKey.trim() && u.gramsPerUnit > 0) || [],
       };
 
-      let response;
-      
-      if (existingProductId) {
-        // Update existing product (PUT)
-        response = await fetch(`${API_BASE}/products/${existingProductId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(productPayload),
-        });
-      } else {
-        // Create new product (POST)
-        response = await fetch(`${API_BASE}/products`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify(productPayload),
-        });
-      }
+      const savedProduct = existingProductId
+        ? await api.updateProduct(existingProductId, productPayload)
+        : await api.createProduct(productPayload);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error saving product:', errorText);
+      if (!savedProduct) {
         throw new Error('Failed to save product');
       }
 
-      const savedProduct = await response.json();
       console.log('Product saved successfully:', savedProduct);
 
       // Invoke onSave callback if provided
@@ -359,7 +362,7 @@ function ProductFormContent({
 
   return (
     <div className="min-h-screen w-full bg-background px-4 py-6">
-      <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="mx-auto max-w-2xl space-y-6">
         {/* Existing product notice banner */}
         {existingProductId && (
           <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
@@ -436,7 +439,8 @@ function ProductFormContent({
                 <button
                   type="button"
                   onClick={() => setImagePreview(null)}
-                  className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-destructive text-white shadow-md transition-colors hover:bg-destructive/80"
+                  aria-label={t('pf-remove-photo')}
+                  className="absolute -right-2 -top-2 flex size-9 items-center justify-center rounded-full bg-destructive text-white shadow-md transition-colors hover:bg-destructive/80"
                 >
                   ×
                 </button>
@@ -509,13 +513,14 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="calories"
                 name="calories"
                 value={formData.calories}
                 onChange={handleInputChange}
                 required
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -528,13 +533,14 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="protein"
                 name="protein"
                 value={formData.protein}
                 onChange={handleInputChange}
                 required
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -547,13 +553,14 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="fat"
                 name="fat"
                 value={formData.fat}
                 onChange={handleInputChange}
                 required
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -566,12 +573,13 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="saturatedFat"
                 name="saturatedFat"
                 value={formData.saturatedFat}
                 onChange={handleInputChange}
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -584,13 +592,14 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="carbs"
                 name="carbs"
                 value={formData.carbs}
                 onChange={handleInputChange}
                 required
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -603,12 +612,13 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="sugars"
                 name="sugars"
                 value={formData.sugars}
                 onChange={handleInputChange}
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -621,12 +631,13 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="fiber"
                 name="fiber"
                 value={formData.fiber}
                 onChange={handleInputChange}
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -639,19 +650,20 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="salt"
                 name="salt"
                 value={formData.salt}
                 onChange={handleInputChange}
                 min="0"
-                step="0.1"
+                step="any"
                 placeholder="0"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             {/* Ingredients */}
-            <div className="col-span-2">
+            <div>
               <label htmlFor="ingredients" className="mb-2 block text-sm font-medium text-muted-foreground">
                 {t('pf-ingredients')}
               </label>
@@ -682,12 +694,13 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="packageWeight"
                 name="packageWeight"
                 value={formData.packageWeight}
                 onChange={handleInputChange}
                 min="0"
-                step="1"
+                step="any"
                 placeholder="e.g. 500"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -700,12 +713,13 @@ function ProductFormContent({
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 id="defaultServing"
                 name="defaultServing"
                 value={formData.defaultServing}
                 onChange={handleInputChange}
                 min="0"
-                step="1"
+                step="any"
                 placeholder="e.g. 100"
                 className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -739,6 +753,7 @@ function ProductFormContent({
                 <span className="text-muted-foreground">=</span>
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={unit.gramsPerUnit}
                   onChange={(e) => {
                     const newUnits = [...(formData.units || [])]
@@ -746,7 +761,7 @@ function ProductFormContent({
                     setFormData({ ...formData, units: newUnits })
                   }}
                   min="0"
-                  step="0.1"
+                  step="any"
                   placeholder="0"
                   className="w-24 rounded-2xl border border-border bg-card px-4 py-2 text-card-foreground outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
@@ -757,7 +772,7 @@ function ProductFormContent({
                     const newUnits = formData.units?.filter((_, i) => i !== index) || []
                     setFormData({ ...formData, units: newUnits })
                   }}
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   aria-label={t('remove')}
                 >
                   ×
@@ -771,7 +786,7 @@ function ProductFormContent({
                 const newUnits = [...(formData.units || []), { unitKey: '', gramsPerUnit: 0 }]
                 setFormData({ ...formData, units: newUnits })
               }}
-              className="w-full rounded-2xl border border-dashed border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="w-full min-h-11 rounded-2xl border border-dashed border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
             >
               {t('pf-add-unit')}
             </button>
@@ -779,18 +794,18 @@ function ProductFormContent({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-3 pt-6 pb-8">
+        <div className="flex gap-3 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             onClick={handleCancel}
-            className="flex-1 rounded-2xl bg-secondary px-6 py-3 font-semibold text-secondary-foreground transition-transform active:scale-95"
+            className="flex-1 min-h-12 rounded-2xl bg-secondary px-6 py-3 font-semibold text-secondary-foreground transition-transform active:scale-95"
           >
             {t('cancel')}
           </button>
           <button
             type="submit"
             disabled={isSaving}
-            className="flex-1 rounded-2xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 min-h-12 rounded-2xl bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-lg transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? t('pf-saving') : t('pf-save')}
           </button>

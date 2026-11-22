@@ -33,6 +33,7 @@ type ApiProduct = {
   carbsPer100g: number
   barcode?: string
   brand?: string
+  manufacturer?: string
   saturatedFatPer100g?: number
   sugarsPer100g?: number
   fiberPer100g?: number
@@ -531,15 +532,17 @@ export async function createProduct(productData: {
   proteinPer100g: number
   fatPer100g: number
   carbsPer100g: number
-  saturatedFatPer100g?: number
-  sugarsPer100g?: number
-  fiberPer100g?: number
-  saltPer100g?: number
-  packageWeightGrams?: number
-  defaultServingGrams?: number
+  saturatedFatPer100g?: number | null
+  sugarsPer100g?: number | null
+  fiberPer100g?: number | null
+  saltPer100g?: number | null
+  packageWeightGrams?: number | null
+  defaultServingGrams?: number | null
   unit?: string
   defaultServing?: number
   dataSource?: string
+  imageUrl?: string | null
+  units?: Array<{ unitKey: string; gramsPerUnit: number }>
 }): Promise<Product | null> {
   try {
     console.log('[API] Creating new product:', productData.name)
@@ -567,6 +570,55 @@ export async function createProduct(productData: {
     return createdProduct
   } catch (error) {
     console.error('[API] Network error during product creation:', error)
+    return null
+  }
+}
+
+/**
+ * Updates an existing product in the database.
+ */
+export async function updateProduct(
+  id: number | string,
+  productData: {
+    name: string
+    brand?: string | null
+    manufacturer?: string | null
+    barcode?: string | null
+    ingredients?: string | null
+    caloriesPer100g: number
+    proteinPer100g: number
+    fatPer100g: number
+    carbsPer100g: number
+    saturatedFatPer100g?: number | null
+    sugarsPer100g?: number | null
+    fiberPer100g?: number | null
+    saltPer100g?: number | null
+    packageWeightGrams?: number | null
+    defaultServingGrams?: number | null
+    dataSource?: string
+    imageUrl?: string | null
+    units?: Array<{ unitKey: string; gramsPerUnit: number }>
+  }
+): Promise<Product | null> {
+  try {
+    const response = await fetch(`${API_BASE}/products/${id}`, {
+      method: 'PUT',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(productData),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`[API] Product update failed: ${response.status} ${response.statusText}`, errorText)
+      return null
+    }
+
+    const data: ApiProduct = await response.json()
+    const updatedProduct = toFrontendProduct(data)
+    productCache.set(updatedProduct.id, updatedProduct)
+    return updatedProduct
+  } catch (error) {
+    console.error('[API] Network error during product update:', error)
     return null
   }
 }

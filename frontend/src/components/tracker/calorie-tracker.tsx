@@ -280,8 +280,8 @@ export function CalorieTracker() {
         </div>
       )}
 
-      {/* pb-44 leaves room for the sticky bottom DailySummary (~11rem) */}
-      <main className="flex flex-1 flex-col gap-3 px-4 pb-44 pt-3">
+      {/* Bottom padding leaves room for the fixed bottom DailySummary + safe-area inset */}
+      <main className="flex flex-1 flex-col gap-3 px-4 pb-[calc(12.5rem+env(safe-area-inset-bottom))] pt-3">
         {state.loading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             {getTranslation(language, 'loading')}

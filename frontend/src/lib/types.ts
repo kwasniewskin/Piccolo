@@ -31,6 +31,7 @@ export type Product = {
   // --- Backend fields (hybrid local search + Open Food Facts) ---
   barcode?: string
   brand?: string
+  manufacturer?: string
   saturatedFatPer100g?: number
   sugarsPer100g?: number
   fiberPer100g?: number

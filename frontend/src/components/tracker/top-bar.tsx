@@ -44,7 +44,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
                     type="button"
                     className="rounded-full px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
-                    Sign In
+                    {t('sign-in')}
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
@@ -52,7 +52,7 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
                     type="button"
                     className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
                   >
-                    Sign Up
+                    {t('sign-up')}
                   </button>
                 </SignUpButton>
               </>
@@ -71,8 +71,8 @@ export function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
         <button
           type="button"
           onClick={onOpenSettings}
-          aria-label="Settings"
-          className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label={t('settings')}
+          className="flex size-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <Settings className="size-4" />
         </button>

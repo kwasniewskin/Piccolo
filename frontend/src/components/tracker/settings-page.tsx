@@ -184,7 +184,7 @@ export function SettingsPage({ open, goals, onClose, onSave }: Props) {
                     </div>
                     <span className="flex-1 font-medium">{item.label}</span>
                     {isComingSoon ? (
-                      <span className="text-sm text-muted-foreground">Coming soon</span>
+                      <span className="text-sm text-muted-foreground">{t('coming-soon')}</span>
                     ) : (
                       <ChevronRight className="size-5 text-muted-foreground" />
                     )}
